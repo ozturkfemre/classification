@@ -1,0 +1,2180 @@
+---
+title: "Classification"
+author: "Fatih Emre Ozturk"
+date: "2023-02-06"
+output: html_document
+---
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(caret)
+library(tidyverse)
+library(magrittr)
+library(olsrr)
+library(car)
+library(corrplot)
+library(ISLR)
+library(Hmisc)
+library(caret)
+library(dplyr)
+library(ModelMetrics)
+library(lmtest)
+library(moments)
+library(bestNormalize) # normalization 
+library(MASS)
+library(psych) 
+library(mvnTest) # perform multivariate normality test
+library(tree) # perform regression and decision tree
+library(randomForest) # perform random forest
+library(rpart)       # performing regression trees
+library(rpart.plot)  # plotting regression trees
+library(ipred)       # bagging
+library(kmed)
+library(klaR)
+library(e1071)
+library(gridExtra)
+library(ggalt)
+library(ROCR)
+library(MVN)
+library(tinytex)
+```
+
+
+```{r include=FALSE}
+df <- get(data("heart", package = "kmed"))
+
+# Dependent variable is decreased to two levels: 0 for healthy, 1 for heart disease
+df %<>% mutate(class = ifelse(df$class == 0, 0,1)) 
+df2 <- df
+
+# required transformations
+
+str(df)
+
+df$sex <- as.numeric(df$sex)
+df$sex <- as.factor(df$sex)
+df$fbs <- as.numeric(df$fbs)
+df$fbs <- as.factor(df$fbs)
+df$exang <- as.numeric(df$exang)
+df$exang <- as.factor(df$exang)
+df$ca <- as.factor(df$ca)
+df$class <- as.factor(df$class)
+
+
+# after transformation
+str(df)
+
+
+sum(is.na(df))
+# there is no na in the dataset
+```
+
+## Tanımlayıcı İstatistikler
+
+```{r echo=FALSE}
+summary(df)
+```
+
+When we examine the descriptive statistics of the numerical values in the data set:
+
+-   The mean of the age variable was found to be lower than the median. This shows that the variable is skewed to the left. Considering the difference between the first quartile and the minimum value, it is thought that there may be extreme values.
+
+-   The mean of the Trestbps variable was found to be slightly larger than the median. This shows that the variable is skewed to the right. When the quartiles and min max variables are examined, it is thought that there may be outlier observations.
+
+-   The mean of the chol variable was found to be larger than the median. This shows that the variable is skewed to the right. When the min-max values are examined with the charts, it is thought that there may be outlier observations.
+
+-   The median of the thalach variable was found to be larger than the mean. This shows that the variable is skewed to the left.
+-   When the difference between the quartiles and min-max values is examined, it is thought that there may be outlier observations.
+
+-   Boxplots will be used for outlier observations and histogram graphs will be used to have a general information about the distributions.
+
+When the descriptive statistics of the categorical values in the data set are examined:
+
+-   When the sex variable is analyzed, it is determined that the majority of the observations in the data are male.
+
+-   When the cp variable was analyzed, it was determined that the majority had asymptomatic chest pain.
+
+-   When the fbs variable was analyzed, it was determined that the majority of the observations had blood glucose less than 120mg/dl.
+
+-   When the restecg variable was analyzed, it was found that the observations had normal to possible electrocardiographic results and very few had abnormal results.
+
+-   When the exang variable was analyzed, it was found that the majority of observations did not have angina.
+
+-   When the slope variable was analyzed, it was found that the slope of the exercise ST segment was flat in the majority of the observations.
+-   When the ca variable was examined, it was found that the majority of the observations took the value 0.
+
+-   When the thal variable was analyzed, it was observed that the majority of the observations received normal and reversable defect levels.
+
+-   When the dependent variable class was analyzed, it was found that 160 people had heart disease and 137 people did not have heart disease.
+
+### Data Visualization
+
+```{r echo=FALSE}
+par(mfrow = c(1,5), bty = "n")
+
+boxplot(df$age, col = "goldenrod1", main = "Age", border = "firebrick3")
+boxplot(df$trestbps, col = "goldenrod1" ,main = "Trestbps", border = "firebrick3")
+boxplot(df$chol, col = "goldenrod1", main = "Chol", border = "firebrick3")
+boxplot(df$thalach, col = "goldenrod1", main = "Thalach", border = "firebrick3")
+boxplot(df$oldpeak, col = "goldenrod1", main = "Oldpeak", border = "firebrick3")
+```
+
+When the box plots of numerical variables are analyzed:
+
+-   There is no outlier observation in the age variable. Left skewness is again noteworthy. Its range is quite high.
+-   When the Trestbps variable is analyzed, it is found that there are many outlier observations. 
+-   When the Chol variable is analyzed, 5 outlier observations are detected.
+-   When the Thalach variable was analyzed, 1 outlier observation was detected.
+-   4 outlier observations were observed in the Oldpeak variable. 
+
+```{r echo=FALSE}
+indexes = sapply(df, is.numeric)
+indexes["class"] = TRUE
+df[,indexes]%>%
+  gather(-class, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = class, color = class)) +
+  geom_boxplot() +
+  facet_wrap(~ var, scales = "free")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.85),legend.position="none",
+        panel.background = element_rect(fill = "white"))+
+  theme(strip.background =element_rect(fill="goldenrod1"))+
+  theme(strip.text = element_text(colour = "firebrick3"))
+```
+
+When the box plots of the numerical variables according to the levels of the dependent variable are analyzed:
+
+-   Observations who did not have a heart attack were found to be in a wider range.
+-   It was found that the average age of observations who had a heart attack was higher than those who did not.
+-   Interestingly, there is no noticeable change for the variable containing cholesterol information according to the levels of the class variable.
+-   It is also interesting to note that the individual with maximum cholesterol did not have a heart attack. 
+-   When the oldpeak variable, which contains information on ST depression caused by exercise compared to rest, was examined, it was found that individuals who had a heart attack had higher values.
+-   When the thalach variable, which includes the maximum heart rate reached, was examined, it was found that individuals who did not have a heart attack reached a higher heart rate. While it was found that the observations who had a heart attack had a wider range, it was also found that they had lower values.
+-   When the variable trestbps, which includes resting blood pressure information, is analyzed, there is no difference between the averages of those who had a heart attack and those who did not. However, it can be said that those who had a heart attack had slightly higher values. 
+
+
+### Train - Test Separation
+
+```{r}
+set.seed(2021900444)
+train_indices <- sample(2, size=nrow(df), replace = TRUE, prob=c(0.7,0.3))
+train <- df[train_indices==1, ]
+test <- df[train_indices==2, ]
+```
+
+## Classification Tree
+
+### Tree Packege
+
+```{r echo=FALSE}
+treeclass <- tree(class~. , train )
+summary(treeclass ) 
+```
+
+
+Examining the output of the first classification tree model:
+
+- The tree was created using a total of 10 variables.
+
+- The tree was created with a total of 18 terminal nodes.
+
+- Residual mean deviance was 0.448.
+
+- The error rate was 0.1005, which can be considered high.
+
+```{r echo=FALSE, fig.width=10}
+plot(treeclass )
+text(treeclass ,pretty =0)
+```
+
+When the Classification Tree is analyzed:
+
+-   The root node was identified as having cp of 1, 2 and 3.
+
+-   Thalach being less than 133.5 was identified as one of the terminal nodes. However, it is noteworthy that there is no class change for both nodes. The situation is similar for the other terminal nodes. It is clear that the tree needs to be pruned.
+
+-   ca taking the value 0 was identified as one of the internal nodes.
+
+-   Most of the terminal nodes have the same values. This emphasizes the need to prune.
+
+#### Cross Validation
+
+```{r echo=FALSE}
+set.seed(2021900444)
+cv.treeclass <- cv.tree(treeclass ,FUN=prune.misclass )
+plot(cv.treeclass$size ,cv.treeclass$dev ,type="o", col = "firebrick3", bty = "l", ylab = "Deviance", xlab = "Size")
+```
+
+When the graph showing the relationship between the number of terminal nodes and Residual Mean Deviance is examined, it is noticed that the minimum residual mean deviance value is realized for the number of 10 terminal nodes.
+For this reason, a pruning will be done for 10 terminal nodes.
+
+```{r}
+prune.treeclass1 <- prune.misclass (treeclass,best=10)
+summary(prune.treeclass1)
+```
+
+When the output of the classification tree model after pruning is examined:
+
+-   The tree was created using a total of 7 variables.
+
+-   The tree was created with a total of 10 terminal nodes.
+
+-   Residual mean deviance is 0.6314, which is higher than before pruning.
+
+-   Error rate is 0.1053, which is slightly higher than before pruning.
+
+```{r echo=FALSE}
+plot(prune.treeclass1)
+text(prune.treeclass1 ,pretty =0)
+```
+
+When the classification tree is examined after pruning:
+
+- The root node was determined as cp being 1, 2 and 3.
+
+- Thal being 3 was identified as one of the terminal nodes.
+
+- ca having a value of 0 was again determined as one of the internal nodes.
+
+- Before pruning, the same values were observed in most of the terminal nodes.
+    It is noticed that this problem disappeared after pruning.
+
+#### Prediction of Trees Created with Tree Package
+
+##### Metrics of the First Tree with Train Data
+
+```{r echo=FALSE}
+classtree.pred <- predict(treeclass ,train ,type="class")
+
+a <- caret::confusionMatrix(classtree.pred, train$class)
+a
+```
+
+Accuracy Rate : 0.8995
+
+Sensitivity : 0.9459
+
+Specificity : 0.8469
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ctpredictions <- data.frame()
+ctpredictions[1,1] <- "Before Pruning CT"
+ctpredictions[1,2] <- "Train"
+ctpredictions[1,3] <- a$overall[1]
+ctpredictions[1,4] <- a$byClass[1]
+ctpredictions[1,5] <- a$byClass[2]
+```
+
+##### Test
+
+```{r echo=FALSE}
+classtree.predtest <- predict(treeclass, test, type = "class")
+
+a <- caret::confusionMatrix(classtree.predtest, test$class)
+a
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.8776
+
+Specificity : 0.5897
+
+```{r include=FALSE}
+ctpredictions[2,1] <- "Before Pruning CT"
+ctpredictions[2,2] <- "Test"
+ctpredictions[2,3] <- a$overall[1]
+ctpredictions[2,4] <- a$byClass[1]
+ctpredictions[2,5] <- a$byClass[2]
+```
+
+##### First Pruned Tree Predictions
+
+```{r echo=FALSE}
+prunedtree.pred1 <- predict(prune.treeclass1 ,train ,type="class")
+
+a <- caret::confusionMatrix(prunedtree.pred1, train$class)
+a
+```
+
+Accuracy Rate : 0.8947
+
+Sensitivity : 0.9550
+
+Specificity : 0.8265
+
+```{r include=FALSE}
+ctpredictions[3,1] <- "First Prune CT"
+ctpredictions[3,2] <- "Train"
+ctpredictions[3,3] <- a$overall[1]
+ctpredictions[3,4] <- a$byClass[1]
+ctpredictions[3,5] <- a$byClass[2]
+```
+
+##### Test
+
+```{r echo=FALSE}
+prunedtree.predtest1 <- predict(prune.treeclass1, test, type = "class")
+
+a <- caret::confusionMatrix(prunedtree.predtest1, test$class)
+
+```
+
+Accuracy Rate : 0.7614
+
+Sensitivity : 0.8980
+
+Specificity : 0.5897
+
+```{r include=FALSE}
+ctpredictions[4,1] <- "First Prune CT"
+ctpredictions[4,2] <- "Test"
+ctpredictions[4,3] <- a$overall[1]
+ctpredictions[4,4] <- a$byClass[1]
+ctpredictions[4,5] <- a$byClass[2]
+```
+
+### Rpart Package
+
+This function also performs cross validation and automatically generates the pruned tree with the fewest errors.
+
+```{r}
+treeclass2 <- rpart(class~., data = train, method = "class")
+
+treeclass2$variable.importance
+```
+
+When ranking the importance of variables, the most important variable is cp followed by thalach, thal, exang variables.
+
+
+```{r}
+treeclass2$numresp
+```
+
+The tree was constructed using four independent variables.
+
+```{r}
+rpart.plot(treeclass2)
+```
+
+When we examine the tree, it is noteworthy that cp is 1,2,3 again as the root node.
+Internal nodes draw attention as cases where ca is equal to zero, slope is 1 or 3.
+There are 6 terminal nodes in total.
+Each assignment is shown in different colors.
+The shades of the colors indicates the amount of observations it contains.
+
+##### Train
+
+```{r echo=FALSE}
+prunedtree.pred3 <- predict(treeclass2 ,train ,type="class")
+
+a <- caret::confusionMatrix(prunedtree.pred3, train$class)
+a
+```
+
+Accuracy Rate : 0.866
+
+Sensitivity : 0.9099
+
+Specificity : 0.8163
+
+##### Test
+
+```{r echo=FALSE}
+prunedtree.predtest3 <- predict(treeclass2, test, type = "class")
+
+b <- caret::confusionMatrix(prunedtree.predtest3, test$class)
+b
+```
+
+Accuracy Rate : 0.8295
+
+Sensitivity : 0.9184
+
+Specificity : 0.7179
+
+```{r include=FALSE}
+
+ctpredictions[5,1] <- "rpart CT"
+ctpredictions[5,2] <- "Train"
+ctpredictions[5,3] <- a$overall[1]
+ctpredictions[5,4] <- a$byClass[1]
+ctpredictions[5,5] <- a$byClass[2]
+ctpredictions[6,1] <- "rpart CT"
+ctpredictions[6,2] <- "Test"
+ctpredictions[6,3] <- b$overall[1]
+ctpredictions[6,4] <- b$byClass[1]
+ctpredictions[6,5] <- b$byClass[2]
+
+names(ctpredictions) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+
+```
+
+### the Best Classification Tree
+
+#### Accuracy Rate Comparison
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm") 
+```
+
+When the accuracy ratios of the first model created with the Tree package and the pruned tree models for train and test data were examined, it was noticed that there were large differences between them.
+This indicates that there may be an overfit problem.
+Although the model with the lowest accuracy rate in the train dataset, the rpart package with the highest accuracy rate in the test dataset draws attention.
+
+#### Sensitivity Comparison
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+When the sensitivities of the first model created with the Tree package and the pruned tree models for train and test data were examined, it was noticed that there were large differences between them.
+This indicates that there may be an overfit problem.
+Although the rpart package has the lowest sensitivity in the train dataset, it has the highest sensitivity in the test dataset.
+In addition, the sensitivity of the test dataset was higher than the train dataset.
+This is exactly what I want.
+
+#### Specificity Comparison
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+```
+
+When the accuracy ratios of the first model created with the Tree package and the pruned tree models for train and test data were examined, it was noticed that there were large differences between them.
+This indicates that there may be an overfit problem.
+Although the model with the lowest accuracy rate in the train dataset, the rpart package with the highest accuracy rate in the test dataset draws attention.
+For this reason, the model built with the **rpart package was selected as the best model** among the Classification Tree models.
+This model will be used when comparing with other models.
+
+## Bagging
+
+### Random Forest Package
+
+```{r}
+set.seed(2021900444) 
+bag <- randomForest(class~. , data=train, mtry=13,importance=TRUE)
+
+bag
+```
+
+-   A total of 500 trees were used in the model.
+
+-   13 variables were used in each split.
+
+-   The OOB error rate was found to be 18.18%.
+
+-   While the error of the zero class was 0.11, the error rate in the first class increased to 0.25
+
+```{r}
+varImpPlot(bag)
+```
+
+When the graph indicating the importance of the variables is analyzed, the important variables according to the meandecreaseaccuracy value of the proline variable are cp, ca, oldpeak, thal.
+According to the gini value indicating node purity, the significant variables are cp, ca, oldpeak, age.
+
+### Model Building with ipred Package
+
+When building the model with the bagging function included in the ipred package:
+
+- nbagg is used to control how many iterations to include in the model.
+
+- coob = TRUE indicates to use the OOB error rate.
+
+- 10-fold cross validation is applied inside the function with the tr control argument.
+
+```{r}
+bag2 <- bagging(
+  formula = class ~ .,
+  data = train,
+  nbagg = 500,  
+  coob = TRUE,
+  method = "treebag",
+  trControl = trainControl(method = "cv", number = 10))
+bag2$err
+```
+
+OOB Missclassification error rate is 0.177.
+It coincided with the same result as the model created with the randomForest package.
+
+```{r}
+VI <- data.frame(var=names(train[,-14]), imp=varImp(bag2))
+
+VI_plot <- VI[order(VI$Overall, decreasing=F),]
+
+barplot(VI_plot$Overall,
+        names.arg=rownames(VI_plot),
+        horiz=T,
+        col="goldenrod1",
+        xlab="Variable Importance",
+        las = 2)
+```
+
+When we examine the graph expressing the importance of the variables, we see a different graph than the previous package.
+While ca and cp variables appeared to be the most important variables in the other package, it was noticed that the oldpeak variable was more important this time.
+It can be said that oldpeak is followed by cp, ca, thal and age variables.
+
+### Predictions of the Models
+
+#### Train 
+```{r echo=FALSE}
+baggintrain <- predict(bag ,train ,type="class")
+a <- caret::confusionMatrix(baggintrain, train$class)
+a
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+#### Test
+
+```{r echo=FALSE}
+baggintest <- predict(bag, test, type = "class")
+
+b <- caret::confusionMatrix(baggintest, test$class)
+b
+```
+
+Accuracy Rate : 0.7727
+
+Sensitivity : 0.8571
+
+Specificity : 0.6667
+
+```{r include=FALSE}
+bagpred <- data.frame()
+bagpred[1,1] <- "bagmodel1"
+bagpred[1,2] <- "train"
+bagpred[2,2] <- "test"
+bagpred[2,1] <- "bagmodel1"
+bagpred[1,3] <- a$overall[1]
+bagpred[2,3] <- b$overall[1]
+bagpred[1,4] <- a$byClass[1]
+bagpred[2,4] <- b$byClass[1]
+bagpred[1,5] <- a$byClass[2]
+bagpred[2,5] <- b$byClass[2]
+```
+
+#### ipred Package Preds
+
+```{r echo=FALSE}
+baggintrain1 <- predict(bag2 ,train ,type="class")
+
+a <- caret::confusionMatrix(baggintrain1, train$class)
+a
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+```{r echo=FALSE}
+baggintest1 <- predict(bag2, test, type = "class")
+
+b <- caret::confusionMatrix(baggintest1, test$class)
+b
+```
+
+Accuracy Rate : 0.8068
+
+Sensitivity : 0.8776
+
+Specificity : 0.7179
+
+```{r include=FALSE}
+
+bagpred[3,1] <- "ipredmodel"
+bagpred[3,2] <- "train"
+bagpred[4,2] <- "test"
+bagpred[4,1] <- "ipredmodel"
+bagpred[3,3] <- a$overall[1]
+bagpred[4,3] <- b$overall[1]
+bagpred[3,4] <- a$byClass[1]
+bagpred[4,4] <- b$byClass[1]
+bagpred[3,5] <- a$byClass[2]
+bagpred[4,5] <- b$byClass[2]
+
+
+
+names(bagpred) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### Choosing the Best Bagging Model
+
+#### Accuracy Rate Comparison
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm") 
+
+```
+
+For both models, the difference between the accuracy rates of the train data and the test data was quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model built with the ipred package gives a slightly better result.
+
+#### Sensitivity Comparison
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+For both models, the difference between the sensitivities of the train data and the test data is quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model built with the ipred package gives a slightly better result.
+
+#### Specificity Comparison
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+```
+
+For both models, the difference between the specificities of the train data and the test data was quite high.
+It can be easily said that there is an overfit problem.
+The model built with the ipred package seems to give a slightly better result.
+Similar results were encountered for all metrics.
+Since it gives slightly better results in the comparison of the algorithms and the results of the test dataset are higher, **I will continue with the bagging model built with the ipred package**.
+
+## Random Forest
+
+```{r}
+rf <- randomForest(class~. ,data=train, mtry=4,importance=TRUE)
+rf
+```
+
+Analyzing the output of the model:
+
+- 4 variables were tested in each decomposition.
+
+- A total of 500 trees were established.
+
+- The OOB error rate was 0.16
+
+- The error was 0.12 for class zero and 0.21 for class one.
+
+- A total of 36 observations were misclassified.
+
+
+```{r}
+varImpPlot(rf)
+```
+
+Considering the importance of variables:
+
+When mean decrease accuracy is analyzed, the order of ca, followed by cp, oldpeakthalach,thal, stands out the most.
+
+When we look at the gini values expressing node purity, the order of cp, ca, oldpeak stands out.
+
+#### Grid Search
+
+In Grid search, a graph is plotted to decide the range of the number of trees.
+
+```{r}
+plot(rf)
+```
+
+```{r}
+hyper_grid <- expand.grid(
+  mtry = c(3, 4, 5, 6), # sqrt(p)
+  nodesize = c(1, 3, 5, 10), 
+  numtrees = c(250,300,330,370, 400),
+  oob = NA                                               
+)
+
+
+for (i in 1:nrow(hyper_grid)) {
+  fit <- randomForest(class~. ,
+                      data=train, 
+                      mtry=hyper_grid$mtry[i],
+                      nodesize = hyper_grid$nodesize[i],
+                      ntree = hyper_grid$numtrees[i],
+                      importance=TRUE)
+  hyper_grid$oob[i] <- mean(fit$err.rate[,1])
+}
+
+hyper_grid %>%
+  arrange(oob) %>%
+  head(10)
+```
+
+Thus, the model with the best parameters should be as follows.
+
+```{r}
+rf2 <- randomForest(class~. ,data=train, mtry=5,importance=TRUE, nodesize = 1, ntree= 250)
+rf2
+```
+
+-   5 variables were tested in each split.
+
+-   A total of 250 trees were constructed.
+    We had already entered these two parameters.
+
+-   The OOB estimate error rate was 0.14
+    This grid search can be said to be a better result than the previous model.
+
+-   The error was 0.10 for class zero and 0.19 for class one.
+
+-   A total of 31 observations were misclassified.
+
+-   It can be said that Grid Search gives better results than before.
+
+```{r}
+varImpPlot(rf2)
+```
+
+Considering the importance of the variables;
+
+When the mean decrease accuracy is analyzed, cp is the most important variable, followed by ca, oldpeak and thal.
+According to the first random forest model, the order of the most periodic variable has changed.
+When Gini values are analyzed, the order of cp, ca, thalach, stands out.
+
+### Predictions of the Models
+
+#### Metrics of the First Random Forest Model with Train Data
+
+```{r echo=FALSE}
+
+ranfortrain <- predict(rf ,train ,type="class")
+
+a <- caret::confusionMatrix(ranfortrain, train$class)
+a
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+#### Test
+
+```{r echo=FALSE}
+ranfortest <- predict(rf, test, type = "class")
+
+b <- caret::confusionMatrix(ranfortest, test$class)
+b
+```
+
+Accuracy Rate : 0.8182
+
+Sensitivity : 0.8776
+
+Specificity : 0.7436
+
+```{r include=FALSE}
+rfpred <- data.frame()
+rfpred[1,1] <- "rfmodel1"
+rfpred[2,1] <- "rfmodel1"
+rfpred[1,2] <- "train"
+rfpred[2,2] <- "test"
+rfpred[1,3] <- a$overall[1]
+rfpred[2,3] <- b$overall[1]
+rfpred[1,4] <- a$byClass[1]
+rfpred[2,4] <- b$byClass[1]
+rfpred[1,5] <- a$byClass[2]
+rfpred[2,5] <- b$byClass[2]
+```
+
+#### After Grid Search
+
+```{r echo=FALSE}
+ranfortrain1 <- predict(rf2 ,train ,type="class")
+
+a <- caret::confusionMatrix(ranfortrain1, train$class)
+a
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+#### Test
+
+```{r echo=FALSE}
+ranfortest1 <- predict(rf2, test, type = "class")
+
+b <- caret::confusionMatrix(ranfortest1, test$class)
+b
+```
+
+Accuracy Rate : 0.8068 
+
+Sensitivity : 0.8776
+
+Specificity : 0.7179 
+
+```{r include=FALSE}
+rfpred[3,1] <- "rfmodel2"
+rfpred[4,1] <- "rfmodel2"
+rfpred[3,2] <- "train"
+rfpred[4,2] <- "test"
+rfpred[3,3] <- a$overall[1]
+rfpred[4,3] <- b$overall[1]
+rfpred[3,4] <- a$byClass[1]
+rfpred[4,4] <- b$byClass[1]
+rfpred[3,5] <- a$byClass[2]
+rfpred[4,5] <- b$byClass[2]
+
+
+
+names(rfpred) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### Choosing the Best Random Forest Model
+
+#### Accuracy Rate Comparison
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm") 
+```
+
+For both models, the difference between the accuracy rates of the train data and the test data was quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model created with Grid Search gives a slightly better result.
+
+#### Sensitivity Comparison
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+For both models, the difference between the sensitivities of the train data and the test data is quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model created with Grid Search gives a slightly better result.
+
+#### Specificity Comparison
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+
+```
+
+For both models, the difference between the specificities of the train data and the test data was quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model built with Grid Search gives a slightly better result.
+Since it gives slightly better results in the comparison of algorithms and the results of the test data set are higher, **I will continue with the random forest model created after grid search**.
+
+## Logistic Regression
+
+```{r}
+logmodel1 <- glm(class ~ age + sex + cp + trestbps + chol +
+                   fbs + restecg + thalach + exang + oldpeak + slope + ca + thal, data = train, family = binomial)
+
+summary(logmodel1)
+```
+
+### Model's statistical significance
+
+-   $H_{0}$ : $\beta_{1}$ = $\beta_{2}$ = ⋯ = $\beta_{k}$ = 0
+
+-   $H_{a}$ : At least one $\beta_{j}$ $\ne$ 0
+
+```{r}
+# G= Null deviance-Residual Deviance
+1-pchisq(288.93 - 112.58,208-188) 
+```
+
+Since this p-value is less than .05, we can reject the null hypothesis. In other words, we have sufficient statistical evidence to say that the independent variables are effective in explaining the dependent variable. 
+
+
+### KCoefficients
+
+Change in prediction value when one increases the value of the independent variable by one unit to determine the log(odds), the exp function is first applied to both sides of the log(odds) formula.
+
+Coefficient interpretation of significant variables:
+
+```{r}
+exp(1.689872) 
+exp(2.824694)  
+exp(3.703384)  
+exp(1.331317)  
+exp(0.988486) 
+exp(1.434285) 
+exp(2.770626) 
+exp( 2.553011)
+exp(1.265260)
+```
+
+-   One-unit increase in the Sex1 variable changes the odds ratio by 5.418787 times
+
+-   One-unit increase in the Cp2 variable changes the odds ratio 16.85579 times
+
+-   1-unit increase in the Cp4 variable changes the odds ratio 40.58441 times.
+
+-   1 unit increase in Restecg2 variable changes odds ratio 3.786026 times.
+
+-   1-unit increase in the Oldpeak variable changes the odds ratio by 2.687163 times.
+
+-   1-unit increase in the Slope2 variable changes the odds ratio by 4.196643 times.
+
+-   1-unit increase in the Ca1 variable changes the odds ratio by 15.96863 times.
+
+-   One unit increase in Ca2 variable changes odds ratio 12.84572 times.
+
+-   1-unit increase in the Thal7 variable changes the odds ratio by 3.544014 times.
+
+### Confidence Interval for Coefficients
+
+-   $H_{0}$ : $\beta_{i}$ = 0
+
+-    $H_{a}$ : $\beta_{i}$ $\ne$ 0
+
+```{r}
+confint.default(logmodel1)
+```
+
+Since the confidence interval for the $\beta$ coefficient does not include the zero value, the null hypothesis $H_o$ is rejected and the following coefficients are statistically significant: sex1, cp4, thalach, slope2, ca
+
+Since the confidence interval for the $\beta$ coefficient contains zero value, the null hypothesis $H_o$ cannot be rejected and the following coefficients are not statistically significant: age, cp2, cp3, trestbps, chol, fbs1, restecg, exang, oldpeak, slope3, thal
+
+### Confidence Interval for Odds
+
+$H_{0}$ : exp($\beta_{i}$) = 1 
+
+$H_{a}$ : exp($\beta_{i}$) $\ne$ 1
+
+```{r}
+
+odds.confint <- exp(confint.default(logmodel1))
+odds.confint
+
+```
+
+Since the confidence interval for the odds ratio value does not include the value 1, the null hypothesis $H_o$ is rejected and the following coefficients are statistically significant: age, sex, cp, trestbps, chol, fbs, restecg2, exang, oldpeak, slope, ca, thal
+
+The interpretation of the significant variables according to the confidence interval for the odds value would be as follows: 
+
+```{r echo=FALSE}
+cat("Increasing Age by one unit increases the odds of having a heart attack by a factor between ", odds.confint[2,1], " and ", odds.confint[2,2], "times the odds of having a heart attack with 95% confidence when Age is one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing Sex by one unit increases the odds of having a heart attack at 95% confidence by a factor between ", odds.confint[3,1], " and ", odds.confint[3,2], "times that of Sex by one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing cp2 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[4,1], " and ", odds.confint[4,2], "times that of cp2 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing cp3 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[5,1], " and ", odds.confint[5,2], "times that of cp3 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing cp4 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[6,1], " and ", odds.confint[6,2], "times that of cp4 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing trestbps by one unit increases the odds of having a heart attack at 95% confidence by a factor between ", odds.confint[7,1], " and ", odds.confint[7,2], "times the odds of having a heart attack by one unit less" )
+cat(" ", sep = "\n", " ")
+cat("Increasing chol by one unit increases the odds of having a heart attack at 95% confidence between ", odds.confint[8,1], " and ", odds.confint[8,2], "times the odds of having a heart attack by one unit less" )
+cat(" ", sep = "\n", " ")
+cat("Increasing fbs1 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[9,1], " and ", odds.confint[9,2], "times the odds of having a heart attack by one unit less" )
+cat(" ", sep = "\n", " ")
+cat("Increasing restecg2 by one unit increases the odds of having a heart attack at 95% confidence by a multiple of ", odds.confint[11,1], " to ", odds.confint[11,2], "times that of restecg2 by one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing exang1 by one unit increases the odds of having a heart attack at 95% confidence by a factor between ", odds.confint[12,1], " and ", odds.confint[12,2], "times that of exang1 by one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing oldpeak by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[13,1], " and ", odds.confint[13,2], "times the odds of having a heart attack by one unit lower than oldpeak" )
+cat(" ", sep = "\n", " ")
+cat("Increasing slope2 by one unit increases the odds of having a heart attack at 95% confidence by a multiple of ", odds.confint[14,1], " to ", odds.confint[14,2], "times that of slope2 by one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing slope3 by one unit increases the odds of having a heart attack at 95% confidence by a multiple of ", odds.confint[15,1], " to ", odds.confint[15,2], "times that of slope3 by one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing ca1 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[16,1], " and ", odds.confint[16,2], "times that of ca1 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing ca2 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[17,1], " and ", odds.confint[17,2], "times that of ca2 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing ca3 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[18,1], " and ", odds.confint[18,2], "times that of ca3 being one unit lower" )
+cat(" ", sep = "\n", " ")
+cat("Increasing thal6 by one unit increases the odds of having a heart attack at 95% confidence by a factor between ", odds.confint[19,1], " and ", odds.confint[19,2], "times that of decreasing thal6 by one unit" )
+cat(" ", sep = "\n", " ")
+cat("Increasing thal7 by one unit increases the odds of having a heart attack with 95% confidence by a factor between ", odds.confint[20,1], " and ", odds.confint[20,2], "times that of decreasing thal7 by one unit" )
+```
+
+### Outlier Analysis
+
+```{r message=FALSE, warning=FALSE}
+outlierTest(logmodel1)
+```
+
+There is no outlier according to Bonferroni.
+
+### Leverage Analysis
+
+The following observations were determined as leverage points:
+
+```{r warning=FALSE}
+pearson.res.chd<-residuals(logmodel1,type="pearson")
+hvalues <- influence(logmodel1)$hat
+r_si <- pearson.res.chd/(sqrt(1-hvalues))
+which(abs(r_si) > 2)
+```
+
+### Influential Observations
+
+```{r}
+influencePlot(logmodel1)
+```
+
+The observations in the big blue circle stand out as influential observations.
+There are quite a lot of influential observations.
+
+#### Assumption Checks
+
+```{r}
+vif(logmodel1)
+```
+
+There is no  multicolinerity.
+
+**Sample size**
+
+The number of observations we need to have if we want a success like 0.90:
+
+```{r}
+10*13/0.90
+```
+
+Since we have more than 144 observations, we can say that this assumption is also met.
+
+### Predictions
+
+```{r}
+ppred <- fitted(logmodel1)
+summary(ppred)
+```
+
+When the distribution of the predictions is analyzed, it is considered to make predictions by taking the following values of threshold: threshold = mean, threshold = median, and threshold = 0.6
+
+#### Metrics of Threshold = median Model with Train Data
+
+```{r echo=FALSE, warning=FALSE}
+threshold <- 0.3601465
+
+
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+
+ppred <- as.factor(ppred)
+
+a <- caret::confusionMatrix(ppred, train$class)
+a
+```
+
+Accuracy Rate : 0.8852
+
+Sensitivity : 0.8649
+
+Specificity : 0.9082
+
+#### Test
+
+```{r echo=FALSE}
+testpred <- predict(logmodel1, newdata = test)
+testpred[testpred > threshold] <- 1
+testpred[testpred < threshold] <- 0
+
+testpred <- as.factor(testpred)
+b <- caret::confusionMatrix(testpred, test$class)
+b
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.8980
+
+Specificity : 0.6667
+
+```{r include=FALSE}
+lgpred <- data.frame()
+lgpred[1,1] <- "lrmedian"
+lgpred[2,1] <- "lrmedian"
+lgpred[1,2] <- "train"
+lgpred[2,2] <- "test"
+lgpred[1,3] <- a$overall[1]
+lgpred[2,3] <- b$overall[1]
+lgpred[1,4] <- a$byClass[1]
+lgpred[2,4] <- b$byClass[1]
+lgpred[1,5] <- a$byClass[2]
+lgpred[2,5] <- b$byClass[2]
+```
+
+#### Metrics of Threshold = mean Model with Train Data
+
+```{r echo=FALSE}
+ppred <- fitted(logmodel1)
+
+threshold <- 0.4688995
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+ppred <- as.factor(ppred)
+a <- caret::confusionMatrix(ppred, train$class)
+a
+```
+
+Accuracy Rate : 0.9043
+
+Sensitivity : 0.9369
+
+Specificity : 0.8673
+
+#### Test
+
+```{r echo=FALSE}
+testpred1 <- predict(logmodel1, newdata = test)
+testpred1[testpred1 > threshold] <- 1
+testpred1[testpred1 < threshold] <- 0
+testpred1 <- as.factor(testpred1)
+b <- caret::confusionMatrix(testpred1, test$class)
+b
+```
+
+Accuracy Rate : 0.7841
+
+Sensitivity : 0.8980
+
+Specificity : 0.6410
+
+```{r include=FALSE}
+lgpred[3,1] <- "lrmean"
+lgpred[4,1] <- "lrmean"
+lgpred[3,2] <- "train"
+lgpred[4,2] <- "test"
+lgpred[3,3] <- a$overall[1]
+lgpred[4,3] <- b$overall[1]
+lgpred[3,4] <- a$byClass[1]
+lgpred[4,4] <- b$byClass[1]
+lgpred[3,5] <- a$byClass[2]
+lgpred[4,5] <- b$byClass[2]
+```
+
+#### Metrics of Threshold = 0.6 Model with Train Data
+
+```{r echo=FALSE}
+ppred <- fitted(logmodel1)
+summary(ppred)
+threshold <- 0.6
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+ppred <- as.factor(ppred)
+a <- caret::confusionMatrix(ppred, train$class)
+a
+```
+
+Accuracy Rate : 0.8947
+
+Sensitivity : 0.9459
+
+Specificity : 0.8367
+
+#### Test
+
+```{r echo=FALSE}
+testpred1 <- predict(logmodel1, newdata = test)
+testpred1[testpred1 > threshold] <- 1
+testpred1[testpred1 < threshold] <- 0
+testpred1 <- as.factor(testpred1)
+b <- caret::confusionMatrix(testpred1, test$class)
+b
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.9184
+
+Specificity : 0.6410
+
+```{r include=FALSE}
+lgpred[5,1] <- "lr0.6"
+lgpred[6,1] <- "lr0.6"
+lgpred[5,2] <- "train"
+lgpred[6,2] <- "test"
+lgpred[5,3] <- a$overall[1]
+lgpred[6,3] <- b$overall[1]
+lgpred[5,4] <- a$byClass[1]
+lgpred[6,4] <- b$byClass[1]
+lgpred[5,5] <- a$byClass[2]
+lgpred[6,5] <- b$byClass[2]
+
+
+names(lgpred) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### Choosing the Best Logistic Regression Model
+
+#### Accuracy Rate Comparison
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm")
+```
+
+For all three models, the difference between the accuracy rates of the train data and the test data was quite high.
+It can be easily said that there is an overfit problem.
+It is seen that the model where the threshold is set as median gives a slightly better result.
+
+#### Sensitivity Comparison
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+For both models, the difference between the sensitivity of train data and test data is not too high.
+It can be said that there is no overfit problem.
+It was observed that the test sensitivity of the model where the threshold is taken as the median was higher than the one generated with train. This draws attention as exactly what I want.
+
+#### Specificity Comparison
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+
+```
+
+When the Specificity values were analyzed, we noticed big differences between the train data and the test data.
+However, considering this data set and the levels we want to classify, it was concluded that the accuracy of predicting heart attack prediction of heart attack survivors is more important.
+For this reason, according to the sensitivity result, the model with the highest threshold of 0.6 was determined as the model to be used in the algorithm selection.
+
+## Linear Discriminant Analysis
+
+Since only numeric variables can be used in Linear Discriminant Analysis, a data set consisting of numeric data will be created and so on.
+
+```{r}
+trainda <- train[,c(1,4,5,8,10,14)]
+testda <- test[,c(1,4,5,8,10,14)]
+
+```
+
+```{r echo=FALSE}
+pairs.panels(trainda[1:5],
+             gap=0,
+             bg=c("goldenrod1","firebrick4")[train$class],
+             pch=21)
+```
+
+When the pairplot graph is analyzed:
+
+-   Some pairs of variables seem to have separated in spite of the errors. these pairs of variables can be listed as follows:
+-   Especially in the graphs examining the relationship of the variable thalach with other variables, the divergences seem to be more obvious.
+-   Likewise, the divergences in the oldpeak variable also seem to be clearly realized.
+-   The separations in the chol, trestbps and age variables appear to be less pronounced.
+-   Histograms of the variables are close to normal despite the skewness, but the histogram of the oldpeak variable in particular is highly skewed.
+-   When the correlations are analyzed, the correlation of -0.35 between thalach and age stands out as the highest correlation.
+-   The correlation between oldpeak and thalach is second with -0.32.
+
+
+```{r echo=FALSE}
+desc <- describeBy(trainda[1:5], trainda[,6]) 
+desc
+```
+
+When descriptive statistics by class are analyzed:
+
+-   The thalach variable showed more separation between classes.
+-   The oldpeak variable also seems to provide separation, although not as much as the thalach variable.
+
+```{r}
+model_lda<-lda(class~.,data=trainda)
+model_lda
+```
+
+When the output of the linear discriminant analysis model is analyzed:
+
+-   There is only one linear discrimination.
+-   The probability of the observations belonging to the zero class is 0.52 and the probability of belonging to the first group is 0.47.
+-   The ratios are very close to each other.
+
+```{r}
+tahmin_1<-predict(model_lda,trainda)
+hist_lda1<-ldahist(data=tahmin_1$x[,1],g=trainda$class) 
+```
+
+Comparative histograms showing how it should be separated according to the first function: 
+-   There is an approximate overlap between the values -1 and 1. 
+-   This may indicate possible mis-sorting.
+
+When the probabilities of the observations being included in the groups are examined, it is found that some observations have close probability values. Some of these observations can be listed as follows.
+
+```{r}
+tahmin_1$posterior[13,]
+tahmin_1$posterior[15,]
+```
+
+```{r}
+partimat(class~., data=trainda,method="lda") 
+```
+
+When the Partition Graph is analyzed: 
+
+-   When observations are shown in red color, it indicates mislabeling. 
+-   The graph with the least mislabeling is seen in the graph showing the relationship and separation between oldpeak and thalach.
+-   When the graphs between trestbps and chol and age and trestbps are examined, it is noteworthy that the separation is not done well.
+
+
+
+### Predictions
+
+#### Train
+
+```{r echo=FALSE}
+
+
+ldatrain <- predict(model_lda ,trainda)
+
+caret::confusionMatrix(ldatrain$class, trainda$class)
+
+
+```
+
+Accuracy Rate : 0.7081
+
+Sensitivity : 0.7838
+
+Specificity : 0.6224
+
+#### Test
+
+```{r echo=FALSE}
+ldatest <- predict(model_lda ,testda)
+caret::confusionMatrix(ldatest$class, testda$class)
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.7939
+
+Specificity : 0.6923
+
+## Quadratic Discriminant Analysis
+
+```{r}
+model_qda <- qda(class~. , data=trainda) 
+
+model_qda
+```
+
+When the Quadratic Discriminant Analysis output is analyzed:
+
+-   The probability of placing the observations in the zero class is 0.53 and the probability of placing them in the first class is 0.46.
+-   Such a low difference between the probabilities calls into question the reliability of the model.
+-   When we look at the averages of the zero and first classes on the basis of variables, we see that the variables trestbps, chol, thalach, oldpeak are more clearly differentiated,
+-   It is observed that there is not a good decomposition on the basis of other variables. 
+
+```{r}
+partimat(class~., data= trainda, method="qda")
+```
+
+When the Partition Graph for QDA is analyzed: 
+
+-   When observations are shown in red color, it indicates mislabeling. 
+-   The least mislabeling is seen in the graphs showing the relationship and separation between oldpeak and age and oldpeak and trestbps.
+-   When the graphs between trestbps and chol and age and trestbps are analyzed, it is noteworthy that the separation is not done well. The same results were obtained in LDA in this respect.
+
+
+### Predictions
+
+#### Train
+
+```{r echo=FALSE}
+trainlda <- predict(model_qda ,trainda)
+
+caret::confusionMatrix(trainlda$class, trainda$class)
+
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.86
+
+Specificity : 0.63
+
+#### Test
+
+```{r echo=FALSE}
+testqda <- predict(model_qda ,testda)
+
+caret::confusionMatrix(testqda$class, testda$class)
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.8571
+
+Specificity : 0.7179
+
+### Assumption Check
+
+#### Multivariate Normality
+
+```{r echo=FALSE}
+dfmvn <- df[,c(1,4,5,8,10,14)]
+sifir <- df[df$class==0,c(1,4,5,8,10,14)]
+sifir <- sifir[,-6]
+
+bir <- df[df$class==1, c(1,4,5,8,10,14)]
+bir <- bir[,-6]
+
+```
+
+##### Henze - Zirkler
+
+-   $H_{o}$: Data is multivariate normal.
+
+-   $H_{a}$: Data is not multivariate normal.
+
+```{r}
+result <- mvn(data = dfmvn, subset = "class", mvnTest = "hz")
+result$multivariateNormality
+```
+
+According to Henze - Zinkler normality test, at 0.05 level of significance, $H_o$ hypothesis that the data come from multiple normal distributions can be rejected.
+
+
+##### Mardia
+
+-   $H_{o}$: Data is multivariate normal.
+
+-   $H_{a}$: Data is not multivariate normal.
+
+```{r}
+resultmardia <- mvn(data = dfmvn, subset = "class", mvnTest = "mardia")
+resultmardia$multivariateNormality
+```
+
+According to Mardia normality test, at 0.05 level of significance, $H_o$ hypothesis that the data come from multiple normal distributions can be rejected.
+
+##### Royston
+
+-   $H_{o}$: Data is multivariate normal.
+
+-   $H_{a}$: Data is not multivariate normal.
+
+```{r}
+resultroyston <- mvn(data = dfmvn, subset = "class", mvnTest = "royston")
+resultroyston$multivariateNormality
+```
+
+According to Royston normality test, at 0.05 level of significance, $H_o$ hypothesis that the data come from multiple normal distributions can be rejected.
+
+#### Homogeneity
+
+##### Levene Test
+
+-   $H_{o}$ : $\sigma_{21}$ = $\sigma_{22}$ = $\sigma_{2k}$
+
+-   $H_{a}$: $\sigma_{2i}$ $\ne$ $\sigma_{2j}$
+
+```{r}
+leveneTest(df$age ~ as.factor(df$class), df) 
+```
+
+According to Levene's homogeneity of variance test, at 0.05 level of significance, the null hypothesis that there is homogeneity of variance by class for the variable Age can be rejected. In other words, the variance of the Age variable is not homogeneous.
+
+
+```{r}
+leveneTest(df$trestbps ~ as.factor(df$class), df)
+```
+
+According to Levene's test for homogeneity of variance, the null hypothesis that there is homogeneity of variance by class for the variable Ho trestbps cannot be rejected at the 0.05 level of significance. In other words, the variance of the trestbps variable is homogeneous.
+
+
+```{r}
+leveneTest(df$chol ~ as.factor(df$class), df)
+```
+
+According to Levene's test for homogeneity of variance, the null hypothesis that there is homogeneity of variance by class for the variable Ho chol cannot be rejected at 0.05 level of significance. In other words, the variance of the chol variable is homogeneous.
+
+
+```{r}
+leveneTest(df$thalach ~ as.factor(df$class), df)
+```
+
+ According to Levene's homogeneity of variance test, at 0.05 level of significance, the null hypothesis that there is homogeneity of variance by class for the variable Ho thalach can be rejected. In other words, the variance of the thalach variable is not homogeneous.
+
+
+```{r}
+leveneTest(df$oldpeak ~ as.factor(df$class), df)
+```
+
+According to Levene's test for homogeneity of variance, at the 0.05 level of significance, the null hypothesis that there is homogeneity of variance across classes for the Ho oldpeak variable can be rejected. In other words, the variance of oldpeak variable is not homogeneous.
+
+
+#### Graph
+
+```{r message=FALSE, warning=FALSE}
+plota <- list()
+box_variables <- c("trestbps", "age", "chol", "oldpeak", "thalach")
+for(i in box_variables) {
+  plota[[i]] <- ggplot(df, 
+                      aes_string(x = "class", 
+                                 y = i, 
+                                 col = "class", 
+                                 fill = "class")) + 
+    geom_boxplot(alpha = 0.2) + 
+    theme(legend.position = "none", panel.background = element_rect(fill = "white")) + 
+    scale_color_manual(values = c("goldenrod1", "firebrick3")) +
+    scale_fill_manual(values = c("goldenrod1", "firebrick3"))
+}
+
+grid.arrange(plota$trestbps, plota$age,plota$chol, plota$oldpeak, plota$thalach,  ncol=3)
+```
+
+When the graphs of variables according to the classes of the dependent variable are analyzed:
+
+-   trestbps and chol variables have homogeneous variance.
+-   The variance of oldpeak, age and thalach variables are not homogeneous.
+-   These results are also in line with the levene test.
+
+
+#### BoxM 
+
+-   $H_{o}$ : Covariance matrices of the outcome variable are equal across all groups
+
+-   $H_{a}$ : Covariance matrices of the outcome variable are different for at least one group
+
+```{r}
+boxm <- heplots::boxM(df[, c(1,4,5,8,10)], df$class) 
+boxm 
+```
+
+Since the p-value is less than 0.05, Ho's assumption that the covariance matrices of the independent variables are equal can be rejected at the 0.05 significance level.
+
+As a result, both LDA and QDA failed to meet the assumptions.
+Therefore, regardless of the metrics, QDA and LDA will not emerge as the chosen model from the algorithm comparison.
+
+## Support Vector Machines
+
+### Support Vector Classifier
+
+The model will be tuned with direct cross-validation.
+
+```{r}
+set.seed(2021900444)
+tune.out <- tune(svm ,
+                 class~.,
+                 data=train,
+                 kernel ="linear",
+                 ranges=list(cost=c(0.1,1,10,100,1000)))
+summary(tune.out)
+```
+
+When I tune with 10 fold cross validation:
+
+-   the cost parameter is set to 1. 
+-   the smaller the cost parameter, the less misclassifications are allowed and therefore the narrower the margin.
+-   for this model it turns out to be a very low and therefore narrow margin. 
+-   the lowest error is 0.16333.
+
+```{r include=FALSE}
+linearsvmbest <- tune.out$best.model
+summary(linearsvmbest)
+```
+
+### Linear Model
+
+#### Train
+
+```{r echo=FALSE}
+lineartrain <- predict(linearsvmbest ,train)
+
+a <- caret::confusionMatrix(lineartrain, train$class)
+a
+```
+
+Accuracy Rate : 0.9091
+
+Sensitivity : 0.9279
+
+Specificity : 0.8878
+
+
+
+#### Test
+
+```{r echo=FALSE}
+lineartest <- predict(linearsvmbest ,test)
+
+b <- caret::confusionMatrix(lineartest, test$class)
+b
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.8163
+
+Specificity : 0.6667
+
+```{r warning=FALSE, include=FALSE}
+svmpreds <- data.frame()
+svmpreds[1,1] <- "linear"
+svmpreds[2,1] <- "linear"
+svmpreds[1,2] <- "train"
+svmpreds[2,2] <- "test"
+svmpreds[1,3] <- 0.9031
+svmpreds[2,3] <- 0.75
+svmpreds[1,4] <- 0.9279
+svmpreds[2,4] <- 0.8163  
+svmpreds[1,5] <- 0.8878
+svmpreds[2,5] <- 0.6667 
+```
+
+### Polynomial Support Vector Classifier
+
+```{r}
+tune.outpoly <- tune(svm,
+                 class~.,
+                 data = train,
+                 kernel = "polynomial",
+                 ranges = list(cost = c(0.001, 0.01, 0.1),
+                               degree = c(1, 3, 4)))
+summary(tune.outpoly)
+```
+
+When we tune with 10 fold cross validation:
+
+-   the cost parameter is chosen to be 0.1. 
+-   the smaller the cost parameter, the less misclassifications are allowed and therefore the narrower the margin.
+-   for this model it turns out to be quite low and therefore a narrow margin. 
+-   degree was found to be 1.
+-   the lowest error was 0.46.
+
+```{r include=FALSE}
+polysvmbest <- tune.outpoly$best.model
+```
+
+#### Polynomial Model Preds
+
+#### Train
+
+```{r echo=FALSE}
+polytrain <- predict(polysvmbest ,train)
+
+caret::confusionMatrix(polytrain, train$class)
+
+```
+
+Accuracy Rate : 0.7943
+
+Sensitivity : 0.8919
+
+Specificity : 0.6837
+
+
+#### Test
+
+```{r echo=FALSE}
+polytest <- predict(polysvmbest ,test)
+
+caret::confusionMatrix(polytest, test$class)
+
+```
+
+Accuracy Rate : 0.7841
+
+Sensitivity : 0.8571
+
+Specificity : 0.6923
+
+```{r include=FALSE}
+svmpreds[3,1] <- "poly"
+svmpreds[4,1] <- "poly"
+svmpreds[3,2] <- "train"
+svmpreds[4,2] <- "test"
+svmpreds[3,3] <- 0.7943
+svmpreds[4,3] <- 0.7841
+svmpreds[3,4] <- 0.8919
+svmpreds[4,4] <- 0.8571  
+svmpreds[3,5] <- 0.6837
+svmpreds[4,5] <- 0.6923 
+```
+
+### Support Vector Machine
+
+The best model will be decided directly with 10 fold cross validation.
+
+```{r}
+set.seed(2021900444)
+tune.out <- tune(svm,
+                     class~.,
+                     data=train,
+                     kernel ="radial",
+                     ranges=list(cost=c(0.1,1,10,100,1000),
+                                 gamma=c(0.1,1,3,4,0.5) ))
+summary(tune.out)
+```
+
+When we tune the radial kernel with 10 fold cross validation:
+
+-   the cost parameter is set to 1. 
+-   the smaller the cost parameter, the less misclassifications are allowed and therefore the narrower the margin.
+-   for this model it turns out to be quite low and therefore a narrow margin.
+-   the gamma parameter was chosen to be the lowest, 0.1.
+-   this rather low value means that the flexibility of the hyperplane is rather low
+-   the lowest error is 0.23.
+
+```{r include=FALSE}
+radialsvmbest <- tune.out$best.model
+```
+
+#### Radial Model Preds
+
+#### Train
+
+```{r echo=FALSE}
+radialtrain <- predict(radialsvmbest ,train)
+
+caret::confusionMatrix(radialtrain, train$class)
+
+```
+
+Accuracy Rate : 0.9952
+
+Sensitivity : 1.0000
+
+Specificity : 0.9898
+
+```{r include=FALSE}
+svmpreds[5,1] <- "radial"
+svmpreds[6,1] <- "radial"
+svmpreds[5,2] <- "train"
+svmpreds[6,2] <- "test"
+svmpreds[5,3] <- 0.9952
+svmpreds[6,3] <- 0.7159
+svmpreds[5,4] <- 1.0000 
+svmpreds[6,4] <- 0.7347  
+svmpreds[5,5] <- 0.9898
+svmpreds[6,5] <- 0.6923 
+
+names(svmpreds) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+
+```
+
+#### Test
+
+```{r echo=FALSE}
+radialtest <- predict(radialsvmbest ,test)
+
+caret::confusionMatrix(radialtest, test$class)
+```
+
+Accuracy Rate : 0.7159
+
+Sensitivity : 0.7347
+
+Specificity : 0.6923
+
+### Choosing the Best Support Vector Model
+
+#### Accuracy Rate Comparison
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm")
+```
+
+When the accuracy rate graph of the predictions made with Train and Test datasets for different support vector machine models is examined, it is realized that the support vector model with radial kernel has an overfit problem.
+The best model was found to be the model with polynomial kernel.
+
+#### Sensitivity Comparison
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+When the sensitivity graphs of the predictions made with Train and Test datasets for different support vector machine models are examined, it is realized that the radial kernel support vector model has an overfit problem.
+The best model was found to be the model with polynomial kernel.
+
+#### Specificity Comparison
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+
+```
+
+When the specificity graphs of the predictions made with Train and Test datasets for different support vector machine models are examined, it is noticed that the support vector model with radial kernel has an overfit problem.
+The test specificity of the model with polynomial kernel is higher than that of the train, which is exactly what is desired.
+The polynomial kernel model was found to be the best.
+
+As a result of the comparison for each metric, **it was decided to continue with the polynomial model** for the reasons mentioned above.
+
+## ROC Curve
+
+```{r}
+predct <- prediction(as.numeric(as.vector(prunedtree.predtest3)), test$class)
+predbag <- prediction(as.numeric(as.vector(baggintest1)), test$class)
+predrf <- prediction(as.numeric(as.vector(ranfortest1)), test$class)
+predlr <- prediction(as.numeric(as.vector(testpred1)), test$class)
+predsvm <- prediction(as.numeric(as.vector(polytest)), test$class)
+
+```
+
+### ROC Calculations
+
+```{r}
+perfct <- performance( predct, "tpr", "fpr" )
+perfbag <- performance(predbag, "tpr", "fpr")
+perfrf <- performance(predrf, "tpr", "fpr")
+perflr <- performance(predlr, "tpr", "fpr")
+perfsvm <- performance(predsvm, "tpr", "fpr")
+
+```
+
+
+### AUC Calculation
+
+```{r}
+
+### ct
+aucct <- performance( predct, measure= "auc" )
+aucct <- aucct@y.values[[1]]
+
+cat("CT Model", sep=": " , formatC(aucct, digits = 2))
+cat("", sep = "\n", "")
+### bag
+aucbag <- performance(predbag, "auc")
+aucbag <- aucbag@y.values[[1]]
+
+cat("Bagging Model", sep=": " , formatC(aucbag, digits = 2))
+cat("", sep = "\n", "")
+# random forest
+aucrf <- performance(predrf, "auc")
+aucrf <- aucrf@y.values[[1]]
+
+cat("RF Model", sep=": " , formatC(aucrf, digits = 2))
+cat("", sep = "\n", "")
+# logistic regression
+auclr <- performance(predlr, "auc")
+auclr <- auclr@y.values[[1]]
+
+cat("LR Model", sep=": " , formatC(auclr, digits = 2))
+cat("", sep = "\n", "")
+# Support Vector
+
+aucsvm <- performance(predsvm, "auc")
+aucsvm <- aucsvm@y.values[[1]]
+
+cat("SVM Model", sep=": " , formatC(aucsvm, digits = 2))
+
+
+```
+
+### ROC Curve Plot
+
+```{r}
+plot(perfct, col = "firebrick3", lwd = 2, lty = 1)
+plot(perfbag, add = TRUE, col = "aquamarine3", lwd = 2, lty =2)
+plot(perfrf, add=T, col = "chocolate3", lwd = 2, lty = 3)
+plot(perflr, add = TRUE, col = "dodgerblue3", lwd = 2, lty=4)
+plot(perfsvm, add=T, col = "darkorchid4", lwd = 2, lty=5)
+legend("bottomright", title = "Algorithm - AUC ", legend= c("ct - 0.82", "bag - 0.8", "rf - 0.8", "lr - 0.78", "svm - 0.77"), col = c( "firebrick3", "aquamarine3", "chocolate3","dodgerblue3","darkorchid4"), lty = c(1,2,3,4,5), lwd = 2)
+
+```
+
+When the ROC Curve graph and AUC calculations are analyzed:
+
+Random Forest was found to be the best algorithm.
+However, for this data set, it is more important that the Type I error, i.e. Sensitivity, is higher.
+Increasing the Type II error is seen as a trade-off that can be taken into consideration for this data set.
+It is vital to accurately predict that someone who has had a heart attack has had a heart attack.
+For this reason, it is necessary to look at cut-off points.
+
+The top three models according to AUC values:
+
+Random Forest, CT, Bag
+
+The three best models according to Cut-Off:
+
+SVM, Bag, Random Forest
+
+**NOTE:** LDA and QDA are ignored as they do not satisfy the assumptions.
+
+### Comparison of Model Metrics
+
+```{r include=FALSE}
+#############################
+preds <- data.frame()
+preds[1,1] <- "ClassTree"
+preds[2,1] <- "ClassTree"
+preds[1,2] <- "train"
+preds[2,2] <- "test"
+preds[1,3] <- 0.86 
+preds[2,3] <- 0.8295 
+preds[1,4] <- 0.9099
+preds[2,4] <- 0.9184
+preds[1,5] <- 0.8163
+preds[2,5] <- 0.7179
+
+##############################
+
+preds[3,1] <- "Bagging"
+preds[4,1] <- "Bagging"
+preds[3,2] <- "train"
+preds[4,2] <- "test"
+preds[3,3] <- 1.0000
+preds[4,3] <- 0.8068
+preds[3,4] <- 1.0000
+preds[4,4] <- 0.8776
+preds[3,5] <- 1.0000
+preds[4,5] <- 0.7179
+
+
+#################################
+
+preds[5,1] <- "RanFor"
+preds[6,1] <- "RanFor"
+preds[5,2] <- "train"
+preds[6,2] <- "test"
+preds[5,3] <- 1
+preds[6,3] <- 0.8068
+preds[5,4] <- 1
+preds[6,4] <- 0.8776
+preds[5,5] <- 1
+preds[6,5] <- 0.7179
+
+#################################
+
+preds[7,1] <- "LogReg"
+preds[8,1] <- "LogReg"
+preds[7,2] <- "train"
+preds[8,2] <- "test"
+preds[7,3] <- 0.8947
+preds[8,3] <- 0.7955
+preds[7,4] <- 0.9459
+preds[8,4] <- 0.9184
+preds[7,5] <- 0.8367
+preds[8,5] <- 0.6410
+
+
+
+#################################
+
+preds[9,1] <- "SVM"
+preds[10,1] <- "SVM"
+preds[9,2] <- "train"
+preds[10,2] <- "test"
+preds[9,3] <- 0.7943
+preds[10,3] <- 0.7841
+preds[9,4] <- 0.8919
+preds[10,4] <- 0.8571
+preds[9,5] <- 0.6837
+preds[10,5] <- 0.6923
+
+###############################
+
+names(preds) <- c("Algorithm", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+preds
+```
+
+**Plot Guide**
+
+-   on the y-axis are the names of the algorithms used.
+-   the x-axis shows the accuracy rate of each algorithm.
+-   the yellow dot shows the accuracy rate of the model of that algorithm built with the train dataset and the red dot shows the accuracy rate of the model built with the test dataset.
+-   the length of the line between the two dots indicates how different the accuracy rate is between train and test, which can give us an idea about the overfit.
+
+
+### Accuracy Rate Comparision
+
+```{r}
+preds %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=4) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algorithm")
+
+```
+
+When the graph showing the Accuracy Rates of the models according to train and test data is analyzed:
+
+
+-   There is no significant difference between the train and test accuracy rates of SVM. However, the accuracy rate of the test dataset is also quite low. It cannot be said to be successful. The Logistic Regression model has a test accuracy rate very close to the SVM model. The difference between train and test is also not very high. However, it is noticed that there are more successful models.
+
+-   It is seen that the difference between train and test accuracy rates of Classification Tree is not too much. Again, a better success is noticed compared to other methods.
+
+-   The difference between the train and test accuracy ratios of Random Forest is right on the border. It has achieved better success than other algorithms.
+
+-   When the difference between the train and test accuracy rates of Bagging is examined, it is thought that there may be an overfit problem. Although the accuracy rate is high, the overfit problem questions the reliability of the model.
+
+-   The model created with Classificaton Tree stands out as the most dominant model for this metric.
+
+#### Sensitivity Comparison
+
+```{r}
+
+preds %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algorithm")
+```
+
+When we analyze the graph showing the Sensitivity of the models according to train and test data:
+
+Sensitivity value is more important for me than other metrics.
+Considering the distinction I want to classify, the importance of sensitivity emerges.
+It is much more important to classify someone with heart disease as a heart patient than to classify someone without heart disease as a heart patient.
+This vital detail will be the main factor in our model selection.
+In this context, Bagging seems to be the model that scores the highest according to the test.
+However, an overfit problem is also noticeable in the Bagging model.
+Logistic Regression in second place and Classification Tree in third place seem to be quite successful.
+In the Classification Tree model, it draws attention as a desired result that the test data gives better results than the training data.
+Classification Tree and Logistic Regression stand out as the more dominant models here as they provide better results compared to other models.
+
+#### Specificity Comparison
+
+```{r}
+preds %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algorithm")
+```
+
+When the graph showing the Specificity of the models according to train and test data is analyzed:
+
+It is noteworthy that the test results of SVM and QDA models are better than train.
+However, both the values are quite low and QDA is considered to be unreliable because it does not meet the assumptions.
+Bagging model was again found to have an overfit problem.
+It can be easily said that Random Forest and Classification Tree models have the best results.
+
+## Best Model
+
+For the three metrics, we wanted to compare the algorithms with the highest results on train and test data.
+However, the models created with the LDA and QDA algorithms are excluded from this comparison because they do not meet the assumptions of these two algorithms.
+Algorithms that do not meet the assumptions will not be considered.
+
+Accuracy Rate:
+
+Classification Tree and Random Forest
+
+Sensitivity
+
+Classification Tree and Logistic Regression
+
+Specificity:
+
+Random Forest and Classification Tree
+
+AUC
+
+Random Forest and Classification Tree
+
+In addition to the general aggregation, the model created with Classification Tree was selected as the model that gives the best results and stands out as the most suitable for this dataset, especially considering its success in the Sensitivity metric.
+When all metrics of the selected model in the test dataset are analyzed:
+
+```{r echo=FALSE}
+prunedtree.predtest3 <- predict(treeclass2, test, type = "class")
+
+caret::confusionMatrix(prunedtree.predtest3, test$class)
+```
+
+In the test dataset with a total number of 88 observations, 15 observations were misclassified.
+In addition to a accuracy rate of 82.95%, a sensitivity of 91.84% is noteworthy.
+The specificity value of 71.79% reveals that the majority of the 15 misclassified observations were non-cardiac observations classified as heart patients.
+It can be easily said that the higher the success in sensitivity, the more valuable it is in classifying people with heart disease as heart patients, that is, the more success it has in this vital distinction.

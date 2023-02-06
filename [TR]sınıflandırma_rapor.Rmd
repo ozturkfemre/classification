@@ -1,0 +1,2181 @@
+---
+title: "Classification"
+author: "Fatih Emre Ozturk"
+date: "2023-01-14"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(caret)
+library(tidyverse)
+library(magrittr)
+library(olsrr)
+library(car)
+library(corrplot)
+library(ISLR)
+library(Hmisc)
+library(caret)
+library(dplyr)
+library(ModelMetrics)
+library(lmtest)
+library(moments)
+library(bestNormalize) # normalization 
+library(MASS)
+library(psych) 
+library(mvnTest) # perform multivariate normality test
+library(tree) # perform regression and decision tree
+library(randomForest) # perform random forest
+library(rpart)       # performing regression trees
+library(rpart.plot)  # plotting regression trees
+library(ipred)       # bagging
+library(kmed)
+library(klaR)
+library(e1071)
+library(gridExtra)
+library(ggalt)
+library(ROCR)
+library(MVN)
+library(tinytex)
+```
+
+## Veri Setinin Çağrılması ve Gerekli Dönüşümlerin Yapılması
+
+```{r include=FALSE}
+df <- get(data("heart", package = "kmed"))
+
+# Soruda istenilen dönüşümü uyguluyoruz.
+df %<>% mutate(class = ifelse(df$class == 0, 0,1)) 
+df2 <- df # veri setinin yedeği alınmıştır
+
+# gerekli dönüşümler:
+
+df$sex <- as.numeric(df$sex)
+df$sex <- as.factor(df$sex)
+df$fbs <- as.numeric(df$fbs)
+df$fbs <- as.factor(df$fbs)
+df$exang <- as.numeric(df$exang)
+df$exang <- as.factor(df$exang)
+df$ca <- as.factor(df$ca)
+df$class <- as.factor(df$class)
+
+
+# gerekli dönüşümler sonrası veri setindeki değişkenlerin türleri
+str(df)
+
+
+sum(is.na(df))
+# veri setinde hiç eksik değer bulunmamakta.
+```
+
+## Tanımlayıcı İstatistikler
+
+```{r echo=FALSE}
+summary(df)
+```
+
+Veri setinde yer alan sayısal değerlerin tanımlayıcı istatistiklerini incelediğimizde:
+
+-   Age değişkeninin ortalamasının medyandan daha düşük olduğu saptanmıştır.
+    Bu da değişkenin sola çarpık olduğunu göstermektedir.
+    Birinci kartil ile minimum değer arasındaki farka bakıldığında uç değerlerin olabileceği düşünülmüştür.
+
+-   Trestbps değişkeninin ortalamasının medyanından az da olsa büyük olduğu saptanmıştır.
+    Bu da değişkenin sağa çarpık olduğunu göstermektedir.
+    Kartiller ile min max değişkenleri incelendiğinde ise aykırı gözlemlerin olabileceği düşünülmüştür.
+
+-   chol değişkeninin ortalamasının medyandan daha büyük olduğu saptanmıştır.
+    Bu da değişkenin sağa çarpık olduğunu göstermektedir.
+    Kartiller ile min-max değerleri incelendiğinde ise aykırı gözlemler olabileceği düşünülmektedir.
+
+-   thalach değişkeninin medyanının ortalamadan daha büyük olduğu görülmüştür.
+    Bu da değişkenin sola çarpık olduğunu göstermektedir.
+    Kartiller ile min-max değerleri arasındaki fark incelendiğinde ise aykırı gözlem olabileceği düşünülmektedir.
+
+-   Aykırı gözlemler için boxplot, dağılımlar ile ilgili genel bir bilgi sahibi olabilmek için ise histogram grafiklerine başvurulacaktır.
+
+Veri setinde yer alan kategorik değerlerin tanımlayıcı istatistikleri incelendiğinde:
+
+-   Sex değişkeni incelendiğinde ise veride yer alan gözlemlerin büyük bir çoğunluğunun erkek olduğu saptanmıştır.
+
+-   cp değişkeni incelendiğinde çoğunluğun asymptomatic türündeki göğüs ağrısı olduğu saptanmıştır.
+
+-   fbs değişkeni incelendiğinde gözlemlerin büyük bir çoğunluğunun 120mg/dl'den daha az kan şekeri olduğu saptanmıştır.
+
+-   restecg değişkeni incelendiğinde gözlemlerin normal ile olası elektrokardiografik sonuçları olduğu, çok az kişinin anormal olduğu saptanmıştır.
+
+-   exang değişkeni incelendiğinde gözlemlerin büyük bir çoğunluğunda anjin görülmediği saptanmıştır.
+
+-   slope değişkeni incelendiğinde gözlemlerin büyük bir çoğunluğunda egzersiz ST segmentinin eğiminin düz olduğu saptanmıştır.
+    ca değişkeni incelendiğinde gözlemlerin büyük bir çoğunluğunun 0 değerini aldığı saptanmıştır.
+
+-   thal değişkeni incelendiğinde gözlemlerin büyük bir çoğunluğunun normal ve reversable defect seviyelerini aldığı gözlemlenmiştir.
+
+-   bağımlı değişken class incelendiğinde ise 160 kişinin kalp hastası olduğu, 137 kişinin ise kalp hastası olmadığı saptanmıştır.
+
+### Görsel Analizler
+
+```{r echo=FALSE}
+par(mfrow = c(1,5), bty = "n")
+
+boxplot(df$age, col = "goldenrod1", main = "Age", border = "firebrick3")
+boxplot(df$trestbps, col = "goldenrod1" ,main = "Trestbps", border = "firebrick3")
+boxplot(df$chol, col = "goldenrod1", main = "Chol", border = "firebrick3")
+boxplot(df$thalach, col = "goldenrod1", main = "Thalach", border = "firebrick3")
+boxplot(df$oldpeak, col = "goldenrod1", main = "Oldpeak", border = "firebrick3")
+```
+
+Sayısal değişkenlerin kutu grafikleri incelendiğinde:
+
+-   Age değişkeninde herhangi bir aykırı gözlem görülmemektedir.
+    Sola çarpıklık yine dikkat çekmektedir.
+    Range'i ise oldukça yüksek görülmektedir.
+
+-   Trestbps değişkeni incelendiğinde birçok aykırı gözlem olduğu saptanmıştır.
+
+-   Chol değişkeni incelendiğinde 5 adet aykırı gözlem saptanmıştır.
+
+-   Thalach değişkeni incelendiğinde 1 adet aykırı gözlem saptanmıştır.
+
+-   Oldpeak değişkeninde 4 adet aykırı gözlem dikkat çekmektedir.
+
+```{r echo=FALSE}
+indexes = sapply(df, is.numeric)
+indexes["class"] = TRUE
+df[,indexes]%>%
+  gather(-class, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = class, color = class)) +
+  geom_boxplot() +
+  facet_wrap(~ var, scales = "free")+
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.85),legend.position="none",
+        panel.background = element_rect(fill = "white"))+
+  theme(strip.background =element_rect(fill="goldenrod1"))+
+  theme(strip.text = element_text(colour = "firebrick3"))
+```
+
+Sayısal değişkenlerin bağımlı değişkenin seviyelerine göre kutu grafikleri incelendiğinde:
+
+-   Kalp hastası olmayan gözlemlerin daha geniş bir rangede olduğu saptanmıştır.
+
+-   Kalp hastası olmayan gözlemlerin yaş ortalamasının hasta olanlara göre daha fazla olduğu saptanmıştır.
+
+-   İlginç bir şekilde kolesterol bilgisi içeren değişken için class değişkeninin seviyelerine göre fark edilir bir değişim bulunmamaktadır.
+
+-   Maximum kolesterole sahip bireyin kalp hastası olmaması da ilginç olarak ifade edilebilir.
+
+-   Dinlenmeye göre egzersizin neden olduğu ST depresyonu bilgisini içeren oldpeak değişkeni incelendiğinde kalp hastası olan gözlemlerin daha yüksek değerlerde olduğu saptanmıştır.
+
+-   Ulaşılan maksimum kalp atış hızı bilgisini içeren thalach değişkeni incelendiğinde kalp hastası olmayan bireylerin daha yüksek kalp atışı hızına ulaştığı saptanmıştır.
+    Kalp hastası olan gözlemlerin daha geniş bir aralıkta olduğu saptanırken daha düşük değerleri aldıkları da saptanmıştır.
+
+-   İstirahat halindeki kan basıncı bilgisini içeren trestbps değişkeni incelendiğinde ise kalp hastası olanlar ile olmayanların ortalamaları arasında bir fark görülmemektedir.
+    Ancak kalp hastası olanların biraz daha yüksek değerler aldığı söylenebilir.
+
+### Eğitim - Test Ayrımı
+
+```{r}
+set.seed(2021900444)
+train_indices <- sample(2, size=nrow(df), replace = TRUE, prob=c(0.7,0.3))
+train <- df[train_indices==1, ]
+test <- df[train_indices==2, ]
+```
+
+## Sınıflandırma Ağacı
+
+### Tree Paketi ile Sınıflandırma
+
+```{r echo=FALSE}
+treeclass <- tree(class~. , train )
+summary(treeclass ) # error rate önemli
+```
+
+İlk sınıflandırma ağacı modelinin çıktısı incelendiğinde:
+
+-   Toplam 10 değişken kullanılarak ağaç oluşturulmuş.
+
+-   Toplam 18 terminal node ile ağaç oluşturulmuş.
+
+-   Residual mean deviance 0.448 olarak dikkat çekiyor.
+
+-   Error rate 0.1005 gibi yüksek sayılabilecek bir değer almış.
+
+```{r echo=FALSE, fig.width=10}
+plot(treeclass )
+text(treeclass ,pretty =0)
+```
+
+Sınıflandırma Ağacı incelendiğinde:
+
+-   Kök düğüm(root node) cp'nin 1,2 ve 3 olması olarak saptanmış.
+
+-   Thalach'ın 133.5'tan küçük olması son düğümlerden(terminal node) biri olarak saptanmış.
+    Ancak her iki node için de sınıf değişikliği olmaması dikkat çekiyor.
+    Diğer terminal node'larda da benzer bir durum var.
+    Ağacın budanması gerektiği açıkça belli oluyor.
+
+-   ca'nın 0 değerini alması iç düğümlerden(internal node) biri olarak saptanmış.
+
+-   Terminal nodeların büyük bir çoğunluğunda aynı değerler dikkat çekiyor.
+    Bu da prune etmenin gerekliliğini vurguluyor.
+
+#### Cross Validation
+
+```{r echo=FALSE}
+set.seed(2021900444)
+cv.treeclass <- cv.tree(treeclass ,FUN=prune.misclass )
+plot(cv.treeclass$size ,cv.treeclass$dev ,type="b", col = "firebrick3", bty = "l")
+```
+
+Terminal düğüm sayısı ile Residual Mean Deviance arasındaki ilişkiyi içeren grafik incelendiğinde en az residual mean deviance değerinin 10 terminal node sayısı için fark edilmiştir.
+Bu sebeple 10 terminal node sayısı için bir budama yapılacaktır.
+
+```{r}
+prune.treeclass1 <- prune.misclass (treeclass,best=10)
+summary(prune.treeclass1)
+```
+
+Budama sonrası sınıflandırma ağacı modelinin çıktısı incelendiğinde:
+
+-   Toplam 7 değişken kullanılarak ağaç oluşturulmuş.
+
+-   Toplam 10 terminal node ile ağaç oluşturulmuş.
+
+-   Residual mean deviance 0.6314 olarak dikkat çekiyor, bu budama öncesinden daha yüksek bir değer.
+
+-   Error rate 0.1053 gibi budama öncesinden daha yüksek bir değer almış.
+
+```{r echo=FALSE}
+plot(prune.treeclass1)
+text(prune.treeclass1 ,pretty =0)
+```
+
+Budama sonrası sınıflandırma Ağacı incelendiğinde:
+
+-   Kök düğüm(root node) cp'nin 1,2 ve 3 olması olarak saptanmış.
+
+-   Thal'ın 3 olması son düğümlerden(terminal node) biri olarak saptanmış.
+
+-   ca'nın 0 değerini alması yine iç düğümlerden(internal node) biri olarak saptanmış.
+
+-   Budama öncesi terminal nodeların büyük bir çoğunluğunda aynı değerler dikkat çekiyordu.
+    Budama sonrası bu problemin ortadan kalktığı fark edilmektedir.
+
+#### Tree Paketi ile Oluşturulan Ağaçların Tahmini
+
+##### İlk Ağacın Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+classtree.pred <- predict(treeclass ,train ,type="class")
+
+caret::confusionMatrix(classtree.pred, train$class)
+```
+
+Accuracy Rate : 0.8995
+
+Sensitivity : 0.9459
+
+Specificity : 0.8469
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ctpredictions <- data.frame()
+ctpredictions[1,1] <- "Budama Öncesi CT"
+ctpredictions[1,2] <- "Train"
+ctpredictions[1,3] <- 0.8995
+ctpredictions[1,4] <- 0.9459
+ctpredictions[1,5] <- 0.8469
+```
+
+##### İlk Ağacın Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+classtree.predtest <- predict(treeclass, test, type = "class")
+
+caret::confusionMatrix(classtree.predtest, test$class)
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.8776
+
+Specificity : 0.5897
+
+```{r include=FALSE}
+ctpredictions[2,1] <- "Budama Öncesi CT"
+ctpredictions[2,2] <- "Test"
+ctpredictions[2,3] <- 0.75
+ctpredictions[2,4] <- 0.8776
+ctpredictions[2,5] <- 0.5897
+```
+
+##### Budanmış Ağacın Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+prunedtree.pred1 <- predict(prune.treeclass1 ,train ,type="class")
+
+caret::confusionMatrix(prunedtree.pred1, train$class)
+```
+
+Accuracy Rate : 0.8947
+
+Sensitivity : 0.9550
+
+Specificity : 0.8265
+
+```{r include=FALSE}
+ctpredictions[3,1] <- "Budanmış CT"
+ctpredictions[3,2] <- "Train"
+ctpredictions[3,3] <- 0.8947
+ctpredictions[3,4] <- 0.9550
+ctpredictions[3,5] <- 0.8265
+```
+
+##### Budanmış Ağacın Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+prunedtree.predtest1 <- predict(prune.treeclass1, test, type = "class")
+
+caret::confusionMatrix(prunedtree.predtest1, test$class)
+
+```
+
+Accuracy Rate : 0.7614
+
+Sensitivity : 0.8980
+
+Specificity : 0.5897
+
+```{r include=FALSE}
+ctpredictions[4,1] <- "Budanmış CT"
+ctpredictions[4,2] <- "Test"
+ctpredictions[4,3] <- 0.7614
+ctpredictions[4,4] <- 0.8980
+ctpredictions[4,5] <- 0.5897
+```
+
+### Rpart Paketi ile Sınıflandırma
+
+Bu paketin özelliği cross validationını da kendisinin yapıp en az hatanın olduğu budanmış ağacı otomatik olarak oluşturmasıdır.
+
+```{r}
+treeclass2 <- rpart(class~., data = train, method = 'class')
+
+treeclass2$variable.importance
+```
+
+Değişkenlerin önemi sıralandığında en önemli değişken cp olarak dikkat çekiyor.
+Ardından ca, thal, exang değişkenleri geliyor.
+
+```{r}
+treeclass2$numresp
+```
+
+Dört bağımsız değişken ile ağaç oluşturulmuş.
+
+```{r}
+rpart.plot(treeclass2)
+```
+
+Ağacı incelediğimizde kök düğüm olarak yine cp'nin 1,2,3 olması dikkat çekiyor.
+Internal node'lar ca'nın sıfıra eşit olması, slope'un 1 veya 3 olması durumları olarak dikkat çekiyor.
+Toplam 6 adet terminal node bulunuyor.
+Her bir atamayı farklı renklere ayırararak göstermiş.
+Renklerin tonu ise içerdiği gözlem miktarını işaret ediyor.
+
+##### Ağacın Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+prunedtree.pred3 <- predict(treeclass2 ,train ,type="class")
+
+caret::confusionMatrix(prunedtree.pred3, train$class)
+```
+
+Accuracy Rate : 0.866
+
+Sensitivity : 0.9099
+
+Specificity : 0.8163
+
+##### Ağacın Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+prunedtree.predtest3 <- predict(treeclass2, test, type = "class")
+
+caret::confusionMatrix(prunedtree.predtest3, test$class)
+```
+
+Accuracy Rate : 0.8295
+
+Sensitivity : 0.9184
+
+Specificity : 0.7179
+
+```{r include=FALSE}
+
+ctpredictions[5,1] <- "rpart CT"
+ctpredictions[5,2] <- "Train"
+ctpredictions[5,3] <- 0.866
+ctpredictions[5,4] <- 0.9099
+ctpredictions[5,5] <- 0.8163
+ctpredictions[6,1] <- "rpart CT"
+ctpredictions[6,2] <- "Test"
+ctpredictions[6,3] <- 0.8295
+ctpredictions[6,4] <- 0.9184
+ctpredictions[6,5] <- 0.7170
+
+names(ctpredictions) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+
+```
+
+### En İyi Sınıflandırma Ağacı Modelinin Seçildiği
+
+#### Accuracy Rate Karşılaştırması
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma") 
+```
+
+Tree paketi ile oluşturulan ilk model ile budanmış ağaç modellerinin train ve test verileri için accuracy rateleri incelendiğinde arada büyük farklılıkların olduğu fark edilmiştir.
+Bu da bir overfit problemi olabileceğini işaret etmektedir.
+Train veri setinde accuracy rate'i en düşük olan model olmasına rağmen test veri setinde en yüksek accuracy rate'e ulaşan rpart paketi dikkat çekmektedir.
+
+#### Sensitivity Karşılaştırması
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Tree paketi ile oluşturulan ilk model ile budanmış ağaç modellerinin train ve test verileri için sensitivityleri incelendiğinde arada büyük farklılıkların olduğu fark edilmiştir.
+Bu da bir overfit problemi olabileceğini işaret etmektedir.
+Train veri setinde sensivitiysi en düşük olan model olmasına rağmen test veri setinde en yüksek sensitivitye ulaşan rpart paketi dikkat çekmektedir.
+Buna ek olarak test veri setinin sensitivity değeri train veri setinden daha çok çıkmıştır.
+Bu da tam olarak istediğimiz şeydir.
+
+#### Specificity Karşılaştırması
+
+```{r}
+ctpredictions %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+```
+
+Tree paketi ile oluşturulan ilk model ile budanmış ağaç modellerinin train ve test verileri için accuracy rateleri incelendiğinde arada büyük farklılıkların olduğu fark edilmiştir.
+Bu da bir overfit problemi olabileceğini işaret etmektedir.
+Train veri setinde accuracy rate'i en düşük olan model olmasına rağmen test veri setinde en yüksek accuracy rate'e ulaşan rpart paketi dikkat çekmektedir.
+Bu sebeple **rpart paketi ile oluşturulmuş model Sınıflandırma Ağacı modelleri arasında en iyi model** olarak seçilmiştir.
+Diğer modellerle kıyaslama yaparken bu model kullanılacaktır.
+
+## Bagging
+
+### Random Forest Paketi İle Model Oluşturma
+
+```{r}
+set.seed(2021900444) 
+bag <- randomForest(class~. , data=train, mtry=13,importance=TRUE)
+
+bag
+```
+
+-   Toplam 500 ağaç kullanılarak model kurulmuş.
+
+-   Her bir ayrımda 13 adet değişken kullanılmış.
+
+-   OOB hata oranı ise %18.18 olarak saptanmıştır.
+
+-   Sıfırıncı sınıfın hatası 0.11 olarak saptanırken birinci sınıfta hata oranı artmış 0.255 olarak daha fazla hata saptanmıştır.
+
+```{r}
+varImpPlot(bag)
+```
+
+Değişkenlerin önemlerini işaret eden grafik incelendiğinde proline değişkeninin meandecreaseaccuracy değerine göre önemli değişkenler cp, ca, oldpeak, thal olarak saptanmıştır.
+Düğüm saflığını işaret eden gini değerine göre önemli değişkenler cp, ca, oldpeak, age olarak saptanmıştır.
+
+### ipred Paketi İle Model Oluşturma
+
+ipred paketinde yer alan bagging fonksiyonu ile model kurulurken:
+
+-   Modele kaç iterasyonun dahil edileceğini kontrol etmek için nbagg kullanılır.
+
+-   coob = TRUE OOB hata oranını kullanmayı göstermektedir.
+
+-   tr control argümani ile 10-fold cross validation fonksiyonun içinde uygulanır.
+
+```{r}
+bag2 <- bagging(
+  formula = class ~ .,
+  data = train,
+  nbagg = 500,  
+  coob = TRUE,
+  method = "treebag",
+  trControl = trainControl(method = "cv", number = 10))
+bag2$err
+```
+
+OOB Missclassification error rate 0.1818 olarak saptanmıştır.
+randomForest paketi ile oluşturulan model ile aynı sonuç olarak denk gelmiştir.
+
+```{r}
+VI <- data.frame(var=names(train[,-14]), imp=varImp(bag2))
+
+VI_plot <- VI[order(VI$Overall, decreasing=F),]
+
+barplot(VI_plot$Overall,
+        names.arg=rownames(VI_plot),
+        horiz=T,
+        col="goldenrod1",
+        xlab="Variable Importance",
+        las = 2)
+```
+
+Değişkenlerin önemini ifade eden grafiği incelediğimizde bir önceki paketten daha farklı bir grafikle karşılaşılmıştır.
+ca ve cp değişkenleri diğer pakette en önemli değişkenler olarak görünürken bu sefer oldpeak değişkeninin daha önemli olduğu fark edilmiştir.
+oldpeak değişkenini ise cp, ca, thal ve age değişkenlerinin takip ettiği söylenebilir.
+
+### Modellerin Tahminleri
+
+#### Tree Paketi ile Oluşturulan Modelin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+baggintrain <- predict(bag ,train ,type="class")
+caret::confusionMatrix(baggintrain, train$class)
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+#### Tree Paketi ile Oluşturulan Modelin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+baggintest <- predict(bag, test, type = "class")
+
+caret::confusionMatrix(baggintest, test$class)
+```
+
+Accuracy Rate : 0.7727
+
+Sensitivity : 0.8571
+
+Specificity : 0.6667
+
+```{r include=FALSE}
+bagpred <- data.frame()
+bagpred[1,1] <- "bagmodel1"
+bagpred[1,2] <- "train"
+bagpred[2,2] <- "test"
+bagpred[2,1] <- "bagmodel1"
+bagpred[1,3] <- 1
+bagpred[2,3] <- 0.7727
+bagpred[1,4] <- 1
+bagpred[2,4] <- 0.8571
+bagpred[1,5] <- 1
+bagpred[2,5] <- 0.6667
+```
+
+#### ipred Paketi ile Oluşturulan Modelin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+baggintrain1 <- predict(bag2 ,train ,type="class")
+
+caret::confusionMatrix(baggintrain1, train$class)
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+```{r echo=FALSE}
+baggintest1 <- predict(bag2, test, type = "class")
+
+caret::confusionMatrix(baggintest1, test$class)
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.8776
+
+Specificity : 0.6923
+
+```{r include=FALSE}
+
+bagpred[3,1] <- "ipredmodel"
+bagpred[3,2] <- "train"
+bagpred[4,2] <- "test"
+bagpred[4,1] <- "ipredmodel"
+bagpred[3,3] <- 1
+bagpred[4,3] <- 0.7955
+bagpred[3,4] <- 1
+bagpred[4,4] <- 0.8776
+bagpred[3,5] <- 1
+bagpred[4,5] <- 0.6923
+
+names(bagpred) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### En İyi Bagging Modelinin Seçilmesi
+
+#### Accuracy Rate Karşılaştırması
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma") 
+
+```
+
+Her iki model için de train verisi ile test verisinin accuracy rateleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+ipred paketi ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+
+#### Sensitivity Karşılaştırması
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Her iki model için de train verisi ile test verisinin sensitivityleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+ipred paketi ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+
+#### Specificity Karşılaştırması
+
+```{r}
+bagpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+```
+
+Her iki model için de train verisi ile test verisinin specificityleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+ipred paketi ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+Tüm metrikler için benzer sonuçlarla karşılaşılmıştı.
+Algoritmaların karşılaştırılmasında biraz daha iyi sonuçlar verdiği ve test veri setinin sonuçları daha yüksek olduğu için, **ipred paketi ile oluşturulmuş bagging modeli ile devam edilecektir**.
+
+## Random Forest
+
+```{r}
+rf <- randomForest(class~. ,data=train, mtry=4,importance=TRUE)
+rf
+```
+
+Modelin çıktısı incelendiğinde:
+
+-   Her bir ayrışmada 4 değişken denenmiş.
+
+-   Toplam 500 ağaç kurulmuş.
+
+-   OOB hata orası 0.177 olarak saptanmış.
+
+-   Sıfırıncı sınıf için hata 0.13, birinci sınıf için ise 0.22 olarak saptanmış.
+
+-   Toplam 36 gözlem yanlış olarak sınıflandırılmış.
+
+```{r}
+varImpPlot(rf)
+```
+
+Değişkenlerin önemlerine bakıldığında:
+
+Mean decrease accuracy incelendiğinde en çok ca, ardından cp, oldpeakthalach,thal, sıralaması dikkat çekmekte.
+
+Düğüm saflığını ifade eden gini değerlerine bakıldığında ise cp, ca, oldpeak sıralaması dikkat çekmektedir.
+
+### Grid Search
+
+Grid search'te ağaç sayısı aralığına karar vermek için grafik çizdirilmiştir.
+
+```{r}
+plot(rf)
+```
+
+```{r}
+hyper_grid <- expand.grid(
+  mtry = c(3, 4, 5, 6),
+  nodesize = c(1, 3, 5, 10), 
+  numtrees = c(200, 220,300,330),
+  rmse = NA                                               
+)
+
+
+for (i in 1:nrow(hyper_grid)) {
+  fit <- randomForest(class~. ,
+                      data=train, 
+                      mtry=hyper_grid$mtry[i],
+                      nodesize = hyper_grid$nodesize[i],
+                      ntree = hyper_grid$numtrees[i],
+                      importance=TRUE)
+  hyper_grid$rmse[i] <- mean(fit$confusion[,3])
+}
+
+# assess top 10 models
+hyper_grid %>%
+  arrange(rmse) %>%
+  head(10)
+```
+
+Grid Search sonucu en iyi parametrelere ait model aşağıdaki gibi oluşturulacaktır:
+
+```{r}
+rf2 <- randomForest(class~. ,data=train, mtry=4,importance=TRUE, nodesize = 10, ntree= 220)
+rf2
+```
+
+-   Her bir ayrışmada 4 değişken denenmiş.
+
+-   Toplam 220 ağaç kurulmuş.
+    Bu iki parametreyi zaten biz girmiştik.
+
+-   OOB estimate error rate ise 0.1531 çıkmış.
+    Bu grid search önceki modelden daha iyi bir sonuç olarak söylenebilir.
+
+-   Sıfırıncı sınıf için hata 0.10, birinci sınıf için ise 0.18 olarak saptanmış.
+
+-   Toplam 32 gözlem yanlış olarak sınıflandırılmış.
+
+-   Grid Search öncesine göre daha iyi sonuçlar verdiği söylenebilir.
+
+```{r}
+varImpPlot(rf2)
+```
+
+Değişkenlerin önemlerine bakıldığında;
+
+Mean decrease accuracy incelendiğinde en çok cp, ardından ca, oldpeak ve thal sıralaması dikkat çekmekte.
+İlk random forest modeline göre en dönemli değişken sıralaması değişmiştir.
+Gini değerlerine bakıldığında ise cp, ca, thalach, sıralaması dikkat çekmektedir.
+
+### Modellerin Tahminleri
+
+#### İlk Random Forest Modelinin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+
+ranfortrain <- predict(rf ,train ,type="class")
+
+caret::confusionMatrix(ranfortrain, train$class)
+```
+
+Accuracy Rate : 1
+
+Sensitivity : 1
+
+Specificity : 1
+
+#### İlk Random Forest Modelinin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+ranfortest <- predict(rf, test, type = "class")
+
+caret::confusionMatrix(ranfortest, test$class)
+```
+
+Accuracy Rate : 0.8182
+
+Sensitivity : 0.8776
+
+Specificity : 0.7436
+
+```{r include=FALSE}
+rfpred <- data.frame()
+rfpred[1,1] <- "rfmodel1"
+rfpred[2,1] <- "rfmodel1"
+rfpred[1,2] <- "train"
+rfpred[2,2] <- "test"
+rfpred[1,3] <- 1
+rfpred[2,3] <- 0.8182
+rfpred[1,4] <- 1
+rfpred[2,4] <- 0.8776
+rfpred[1,5] <- 1
+rfpred[2,5] <- 0.7436
+```
+
+#### Grid Search Sonrası Random Forest Modelinin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+ranfortrain1 <- predict(rf2 ,train ,type="class")
+
+caret::confusionMatrix(ranfortrain1, train$class)
+
+
+```
+
+Accuracy Rate : 0.9378
+
+Sensitivity : 0.9459
+
+Specificity : 0.9256
+
+#### Grid Search Sonrası Random Forest Modelinin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+ranfortest1 <- predict(rf2, test, type = "class")
+
+caret::confusionMatrix(ranfortest1, test$class)
+
+```
+
+Accuracy Rate : 0.8182
+
+Sensitivity : 0.8776
+
+Specificity : 0.7436
+
+```{r include=FALSE}
+rfpred[3,1] <- "rfmodel2"
+rfpred[4,1] <- "rfmodel2"
+rfpred[3,2] <- "train"
+rfpred[4,2] <- "test"
+rfpred[3,3] <- 0.9378
+rfpred[4,3] <- 0.8182
+rfpred[3,4] <- 0.9459
+rfpred[4,4] <- 0.8776
+rfpred[3,5] <- 0.9256
+rfpred[4,5] <- 0.7436
+
+
+names(rfpred) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### En İyi Random Forest Modelinin Seçilmesi
+
+#### Accuracy Rate Karşılaştırması
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma") 
+```
+
+Her iki model için de train verisi ile test verisinin accuracy rateleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+Grid Search ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+
+#### Sensitivity Karşılaştırması
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Her iki model için de train verisi ile test verisinin accuracy rateleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+Grid Search ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+
+#### Specificity Karşılaştırması
+
+```{r}
+rfpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+
+```
+
+Her iki model için de train verisi ile test verisinin accuracy rateleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+Grid Search ile oluşturulmuş modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+Algoritmaların karşılaştırılmasında biraz daha iyi sonuçlar verdiği ve test veri setinin sonuçları daha yüksek olduğu için, **grid search sonrası oluşturulan random forest modeli ile devam edilecektir**.
+
+## Logistic Regression
+
+```{r}
+logmodel1 <- glm(class ~ age + sex + cp + trestbps + chol +
+                   fbs + restecg + thalach + exang + oldpeak + slope + ca + thal, data = train, family = binomial)
+
+summary(logmodel1)
+```
+
+### Modelin anlamlılığı
+
+-   $H_{0}$ : $\beta_{1}$ = $\beta_{2}$ = ⋯ = $\beta_{k}$ = 0
+
+-   $H_{a}$ : En azından bir $\beta_{j}$ $\ne$ 0
+
+```{r}
+# G= Null deviance-Residual Deviance
+1-pchisq(288.93 - 112.58,208-188) 
+```
+
+P-değeri anlamlılık seviyesi 0.05'ten küçük olduğu için sıfır hipotezini reddebiliriz.
+Başka bir deyişle, bağımsız değişkenlerin bağımlı değişkeni açıklamada etkili olduğunu söyleyebilecek yeterli istatistiksel kanıtımız bulunmaktadır.
+
+### Katsayı Değerlendirmesi
+
+Bağımsız değişkenin değerini bir birim arttırdığımızda tahmin değerindeki değişikliği belirlemek için önce log(odds) formulünde her iki tarafa exp fonksiyonu uygulanır.
+
+Anlamlı değişkenlerin katsayı yorumu:
+
+```{r}
+exp(1.689872) 
+exp(2.824694)  
+exp(3.703384)  
+exp(1.331317)  
+exp(0.988486) 
+exp(1.434285) 
+exp(2.770626) 
+exp( 2.553011)
+exp(1.265260)
+```
+
+-   Sex1 değişkenindeki bir birimlik artış odds oranını 5.418787 kat değiştirir
+
+-   Cp2 değişkenindeki bir birimlik artış odds oranını 16.85579 kat değiştirir
+
+-   Cp4 değişkenindeki 1 birimlik artış odds oranını 40.58441 kat değiştirir.
+
+-   Restecg2 değişkenindeki 1 birimlik artış odds oranını 3.786026 kat değiştirir.
+
+-   Oldpeak değişkenindeki 1 birimlik artış odds oranını 2.687163 kat değiştirir.
+
+-   Slope2 değişkenindeki 1 birimlik artış odds oranını 4.196643 kat değiştirir.
+
+-   Ca1 değişkenindeki 1 birimlik artış odds oranını 15.96863 kat değiştirir.
+
+-   Ca2 değişkenindeki bir birimlik artış odds oranını 12.84572 kat değiştirir
+
+-   Thal7 değişkenindeki 1 birimlik artış odds oranını 3.544014 kat değiştirir.
+
+### Katsayılar için Güven Aralığı Tahmini
+
+-   $H_{0}$ : $\beta_{i}$ = 0
+
+-    $H_{a}$ : $\beta_{i}$ $\ne$ 0
+
+```{r}
+confint.default(logmodel1)
+```
+
+$\beta$ katsayısına ait güven aralığı sfır değerini içermediği için $H_{0}$ hipotezi red edilerek aşağıdaki katsayıların istatistiksel olarak anlamlı olduğuna karar verilmiştir:
+
+sex1, cp2, cp4, thalach, restecg2, oldpeak,slope2, ca1, ca2, thal7
+
+### Odds Değeri için Güven Aralığı
+
+$H_{0}$ : exp($\beta_{i}$) = 1 $H_{a}$ : exp($\beta_{i}$) $\ne$ 1
+
+```{r}
+
+odds.confint <- exp(confint.default(logmodel1))
+odds.confint
+
+```
+
+Odds oran değerine ait güven aralığı 1 değerini içermediği için Ho hipotezi red edilerek aşağıdaki katsayıların istatistiksel olarak anlamlı olduğuna karar verilmiştir:
+
+age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal
+
+Anlamlı değişkenlerin odds değeri için güven aralığına göre yorumlanması aşağıdaki gibi olacaktır:
+
+```{r echo=FALSE}
+cat("Age değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle Age değişkeninin bir birim düşük olana göre ", odds.confint[2,1], " ile ", odds.confint[2,2], "katı arasında değer alır" ,"\n" )
+cat("Sex değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle Sex değişkeninin bir birim düşük olana göre ", odds.confint[3,1], " ile ", odds.confint[3,2], "katı arasında değer alır" ,"\n" )
+cat("Cp2 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle cp2 değişkeninin bir birim düşük olana göre ", odds.confint[4,1], " ile ", odds.confint[4,2], "katı arasında değer alır" ,"\n" )
+cat("Cp3 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle cp3 değişkeninin bir birim düşük olana göre ", odds.confint[5,1], " ile ", odds.confint[5,2], "katı arasında değer alır" ,"\n" )
+cat("Cp4 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle cp4 değişkeninin bir birim düşük olana göre ", odds.confint[6,1], " ile ", odds.confint[6,2], "katı arasında değer alır"  ,"\n")
+cat("Trestbps değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle trestbps değişkeninin bir birim düşük olana göre ", odds.confint[7,1], " ile ", odds.confint[7,2], "katı arasında değer alır"  ,"\n")
+cat("Chol değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle choldeğişkeninin bir birim düşük olana göre ", odds.confint[8,1], " ile ", odds.confint[8,2], "katı arasında değer alır"  ,"\n")
+cat("fbs1 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle fbs1 değişkeninin bir birim düşük olana göre ", odds.confint[9,1], " ile ", odds.confint[9,2], "katı arasında değer alır"  ,"\n")
+cat("restecg2 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle restecg2 değişkeninin bir birim düşük olana göre ", odds.confint[11,1], " ile ", odds.confint[11,2], "katı arasında değer alır" ,"\n" )
+cat("exang1 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle exang1 değişkeninin bir birim düşük olana göre ", odds.confint[12,1], " ile ", odds.confint[12,2], "katı arasında değer alır"  ,"\n")
+cat("oldpeak değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle oldpeak değişkeninin bir birim düşük olana göre ", odds.confint[13,1], " ile ", odds.confint[13,2], "katı arasında değer alır" ,"\n" )
+cat("slope2 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle slope2 değişkeninin bir birim düşük olana göre ", odds.confint[14,1], " ile ", odds.confint[14,2], "katı arasında değer alır"  ,"\n")
+cat("slope3 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle slope3 değişkeninin bir birim düşük olana göre ", odds.confint[15,1], " ile ", odds.confint[15,2], "katı arasında değer alır" ,"\n" )
+cat("Ca1 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle ca1 değişkeninin bir birim düşük olana göre ", odds.confint[16,1], " ile ", odds.confint[16,2], "katı arasında değer alır"  ,"\n")
+cat("Ca2 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle ca2 değişkeninin bir birim düşük olana göre ", odds.confint[17,1], " ile ", odds.confint[17,2], "katı arasında değer alır" ,"\n" )
+cat("Ca3 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle ca3 değişkeninin bir birim düşük olana göre ", odds.confint[18,1], " ile ", odds.confint[18,2], "katı arasında değer alır" ,"\n" )
+cat("thal6 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle thal6 değişkeninin bir birim düşük olana göre ", odds.confint[19,1], " ile ", odds.confint[19,2], "katı arasında değer alır"  ,"\n")
+cat("thal7 değişkeninin bir birim arttırılması kalp krizi geçirme oddsunu %95 güvenle thal7 değişkeninin bir birim düşük olana göre ", odds.confint[20,1], " ile ", odds.confint[20,2], "katı arasında değer alır" ,"\n" )
+
+
+```
+
+### Artık Analizi
+
+```{r message=FALSE, warning=FALSE}
+outlierTest(logmodel1)
+```
+
+Bonferroni'ye göre herhangi bir uç değer bulunmamakta.
+
+### Kaldıraç Analizi
+
+Aşağıdaki gözlemler pearson'a göre kaldıraç olarak saptanmıştır:
+
+```{r warning=FALSE}
+pearson.res.chd<-residuals(logmodel1,type="pearson")
+hvalues <- influence(logmodel1)$hat
+r_si <- pearson.res.chd/(sqrt(1-hvalues))
+which(abs(r_si) > 2)
+```
+
+### Etkin Gözlem Grafiği
+
+```{r}
+influencePlot(logmodel1)
+```
+
+Büyük mavi daire içerisinde alınan gözlemler etkin gözlem olarak dikkat çekmekte.
+Oldukça fazla etkin gözlem bulunmakta.
+
+### Varsayım Kontrolleri
+
+```{r}
+vif(logmodel1)
+```
+
+Herhangi bir bağlantı problemi görülmemektedir.
+
+Örneklem büyüklüğü:
+
+Eğer 0.90 gibi bir başarı istiyorsak sahip olmamız gereken gözlem sayısı:
+
+```{r}
+10*13/0.90
+```
+
+Gözlem sayımız 144'ten fazla olduğu için bu varsayımın da karşılandığı söylenebilir.
+
+### Modelin Tahminleri
+
+```{r}
+ppred <- fitted(logmodel1)
+summary(ppred)
+```
+
+Tahminlerin dağılımı incelendiğinde threshold'un aşağıdaki değerleri alınarak tahmin yapılması düşünülmüştür: threshold = mean threshold = median threshold = 0.6
+
+#### Threshold = median Modelinin Train Verisi ile Metrikleri
+
+```{r echo=FALSE, warning=FALSE}
+threshold <- 0.3601465
+
+
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+
+ppred <- as.factor(ppred)
+
+caret::confusionMatrix(ppred, train$class)
+```
+
+Accuracy Rate : 0.8852
+
+Sensitivity : 0.8649
+
+Specificity : 0.9082
+
+#### Threshold = median Modelinin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+testpred <- predict(logmodel1, newdata = test)
+testpred[testpred > threshold] <- 1
+testpred[testpred < threshold] <- 0
+
+testpred <- as.factor(testpred)
+caret::confusionMatrix(testpred, test$class)
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.8980
+
+Specificity : 0.6667
+
+```{r include=FALSE}
+lgpred <- data.frame()
+lgpred[1,1] <- "lrmedyan"
+lgpred[2,1] <- "lrmedyan"
+lgpred[1,2] <- "train"
+lgpred[2,2] <- "test"
+lgpred[1,3] <- 0.8852
+lgpred[2,3] <- 0.7955
+lgpred[1,4] <- 0.8649
+lgpred[2,4] <- 0.8980
+lgpred[1,5] <- 0.9082
+lgpred[2,5] <- 0.6667
+```
+
+#### Threshold = mean Modelinin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+ppred <- fitted(logmodel1)
+
+threshold <- 0.4688995
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+ppred <- as.factor(ppred)
+caret::confusionMatrix(ppred, train$class)
+```
+
+Accuracy Rate : 0.9043
+
+Sensitivity : 0.9369
+
+Specificity : 0.8673
+
+#### Threshold = mean Modelinin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+testpred1 <- predict(logmodel1, newdata = test)
+testpred1[testpred1 > threshold] <- 1
+testpred1[testpred1 < threshold] <- 0
+testpred1 <- as.factor(testpred1)
+caret::confusionMatrix(testpred1, test$class)
+```
+
+Accuracy Rate : 0.7841
+
+Sensitivity : 0.8980
+
+Specificity : 0.6410
+
+```{r include=FALSE}
+lgpred[3,1] <- "lrmean"
+lgpred[4,1] <- "lrmean"
+lgpred[3,2] <- "train"
+lgpred[4,2] <- "test"
+lgpred[3,3] <- 0.9043
+lgpred[4,3] <- 0.7841
+lgpred[3,4] <- 0.9369
+lgpred[4,4] <- 0.8980
+lgpred[3,5] <- 0.8673
+lgpred[4,5] <- 0.6410
+```
+
+#### Threshold = mean Modelinin Train Verisi ile Metrikleri
+
+```{r echo=FALSE}
+ppred <- fitted(logmodel1)
+summary(ppred)
+threshold <- 0.6
+ppred[ppred > threshold] <- 1
+ppred[ppred < threshold] <- 0
+ppred <- as.factor(ppred)
+caret::confusionMatrix(ppred, train$class)
+
+```
+
+Accuracy Rate : 0.8947
+
+Sensitivity : 0.9459
+
+Specificity : 0.8367
+
+#### Threshold = mean Modelinin Test Verisi ile Metrikleri
+
+```{r echo=FALSE}
+testpred1 <- predict(logmodel1, newdata = test)
+testpred1[testpred1 > threshold] <- 1
+testpred1[testpred1 < threshold] <- 0
+testpred1 <- as.factor(testpred1)
+caret::confusionMatrix(testpred1, test$class)
+
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.9184
+
+Specificity : 0.6410
+
+```{r include=FALSE}
+lgpred[5,1] <- "lr0.6"
+lgpred[6,1] <- "lr0.6"
+lgpred[5,2] <- "train"
+lgpred[6,2] <- "test"
+lgpred[5,3] <- 0.8947
+lgpred[6,3] <- 0.7955
+lgpred[5,4] <- 0.9459
+lgpred[6,4] <- 0.9184
+lgpred[5,5] <- 0.8367
+lgpred[6,5] <- 0.6410
+names(lgpred) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+```
+
+### En İyi Logistic Regression Modelinin Seçilmesi
+
+#### Accuracy Rate Karşılaştırması
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma")
+```
+
+Her üç model için de train verisi ile test verisinin accuracy rateleri arasındaki fark oldukça fazla çıkmıştır.
+Bir overfit problemi olduğu rahatlıkla söylenebilir.
+Threshold'un median olarak belirlendiği modelin biraz daha iyi bir sonuç verdiği görülmektedir.
+
+#### Sensitivity Karşılaştırması
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Her iki model için de train verisi ile test verisinin sensitivity arasındaki çok fazla çıkmamıştır.
+Overfit problemi olmadığı söylenebilir.
+Threshold'un medyan olarak alındığı modelin test sensitivity'sinin train ile oluşturulandan daha fazla çıktığı görülmüştür.
+Bu tam olarak istediğimiz bir durum olarak dikkat çekiyor.
+
+#### Specificity Karşılaştırması
+
+```{r}
+lgpred %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+
+```
+
+Specificity değerleri incelendiğinde train verisi ile test verisi arasında büyük farklar fark edilmiştir.
+Ancak bu veri seti ve sınıflandırmak istediğimiz seviyeler düşünüldüğünde kalp krizi geçirenlerin kalp krizi geçirme tahmininin doğruluğunun daha önemli olduğu kanısına varılmıştır.
+Bu sebeple sensitivity sonucuna göre en yüksek olan threshold'un 0.6 olduğu model algoritma seçiminde kullanılacak model olarak saptanmıştır.
+
+## Linear Discriminant Analysis
+
+Linear Discriminant Analiz yalnızca numerik değişkenler kullanılabileceği için numerik verilerden oluşan bir veri seti oluşturulup öyle devam edilecektir.
+
+```{r}
+trainda <- train[,c(1,4,5,8,10,14)]
+testda <- test[,c(1,4,5,8,10,14)]
+
+```
+
+```{r echo=FALSE}
+pairs.panels(trainda[1:5],
+             gap=0,
+             bg=c("goldenrod1","firebrick4")[train$class],
+             pch=21)
+```
+
+pairplot grafiği incelendiğinde:
+
+Bazı değişken çiflerinin arasındaki ilişkide ayrışmanın hatalara rağmen gerçekleştiği görülmekte.
+bu değişken çiftleri aşağıdaki gibi sıralanabilir:
+
+-   Özellikle thalach değişkeninin diğer değişkenlerle olan ilişkisini inceleyen grafiklerde ayrışmalar daha bariz bir şekilde gerçekleşmiş gibi görünüyor.
+
+-   Aynı şekilde oldpeak değişkeninindeki ayrımlar da net bir şekilde gerçekleşmiş gibi görülmektedir.
+
+-   Chol, trestbps ve age değişkenlerinde ayrımların ise daha az olduğu görülmektedir.
+
+-   Değişkenlerin histogramlarına bakıldığında çarpıklıklara rağmen normale yakın görülmekteyken, özellikle oldpeak değişkeninin histogramında aşırı çarpıklık dikkat çekmektedir.
+
+-   Korelasyonlar incelendiğinde ise thalach ile age arasındai -0.38'lik korelasyon en yüksek korelasyon olarak dikkat çekmekte.
+    oldpeak ile thalach arasındaki korelasyon da -0.34 ile ikinci sırada yer almaktadır.
+
+```{r echo=FALSE}
+desc <- describeBy(trainda[1:5], trainda[,6]) 
+desc
+```
+
+Sınıflara göre tanımlayıcı istatistikler incelendiğinde:
+
+thalach değişkeninde sınıflar arası ayrımın daha fazla olduğu saptanmıştır.
+oldpeak değişkeni de thalach değişkeni kadar olmasa da ayrımı sağlamış gibi görünmekte.
+
+```{r}
+model_lda<-lda(class~.,data=trainda)
+model_lda
+```
+
+Linear discriminant analysis modelinin çıktısı incelendiğinde:
+
+-   Yalnızca bir adet doğrusal ayrım olduğu saptanmıştır.
+
+-   Gözlemlerin sıfırıncı sınıfa dahil olma olasılığı 0.53, birinci gruba dahil olma olasılığı ise 0.46 olarak saptanmıştır.
+
+-   Oranlar birbirine oldukça yakın çıkmıştır.
+
+-   Thalach ve chol değişkenlerinin ortalama ayrımı daha etkili olarak saptanmıştır.
+
+```{r}
+tahmin_1<-predict(model_lda,trainda)
+hist_lda1<-ldahist(data=tahmin_1$x[,1],g=trainda$class) 
+```
+
+Birinci fonksiyona göre nasıl ayrılması gerektiğini gösteren karşılaştırmalı histogramlar incelendiğinde yaklaşık olarak -2 değeriyle 1 değerleri arasında örtüşme görülmekte.
+Bu olası yanlış ayrışmaları gösteriyor olabilir.
+
+Gözlemlerin gruplara dahil olma olasılıklarına bakıldığında bazı gözlemlerin birbirine yakın olasılık değerleri olduğu saptanmıştır.
+Bu gözlemlerden bazıları aşağıdaki gibi sıralanabilir.
+
+```{r}
+tahmin_1$posterior[13,]
+tahmin_1$posterior[15,]
+```
+
+```{r}
+partimat(class~., data=trainda,method="lda") 
+```
+
+Partition Grafiği incelendiğinde gözlemlerin kırmızı renk ile gösterilmesi yanlış etiketlemeyi ifade etmektedir.
+Yanlış etiketlenmenin en az olduğu grafik oldpeak ile thalach arasındaki ilişkiyi ve ayrımı gösteren grafikte görülmekte.
+trestbps ile chol ve age ile trestbps arasındaki grafikler incelendiğinde ise ayrışmanın iyi bir şekilde yapılmadığı dikkat çekmektedir.
+
+### Modelin Tahminleri
+
+#### Train
+
+```{r echo=FALSE}
+
+
+ldatrain <- predict(model_lda ,trainda)
+
+caret::confusionMatrix(ldatrain$class, trainda$class)
+
+
+```
+
+Accuracy Rate : 0.7081
+
+Sensitivity : 0.7838
+
+Specificity : 0.6224
+
+#### Test
+
+```{r echo=FALSE}
+ldatest <- predict(model_lda ,testda)
+caret::confusionMatrix(ldatest$class, testda$class)
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.7939
+
+Specificity : 0.6923
+
+## Quadratic Discriminant Analysis
+
+```{r}
+model_qda <- qda(class~. , data=trainda) 
+
+model_qda
+```
+
+Quadratic discriminant analysis modelinin çıktısı incelendiğinde:
+
+-   Gözlemlerin sıfırıncı sınıfa dahil olma olasılığı 0.53, birinci gruba dahil olma olasılığı ise 0.46 olarak saptanmıştır.
+
+-   Oranlar birbirine oldukça yakın çıkmıştır.
+
+-   Thalach ve chol değişkenlerinin ortalama ayrımı daha etkili olarak saptanmıştır.
+
+```{r}
+partimat(class~., data= trainda, method="qda")
+```
+
+QDA için Partition Grafiği incelendiğinde gözlemlerin kırmızı renk ile gösterilmesi yanlış etiketlemeyi ifade etmektedir.
+Yanlış etiketlenmenin en az olduğu grafik oldpeak ile age ve oldpeak ile trestbps arasındaki ilişkiyi ve ayrımı gösteren grafiklerde görülmekte.
+trestbps ile chol ve age ile trestbps arasındaki grafikler incelendiğinde ise ayrışmanın iyi bir şekilde yapılmadığı dikkat çekmektedir.
+LDA'da da bu açıdan aynı şekilde sonuçlara erişilmişti.
+
+### Tahminler
+
+#### Train
+
+```{r echo=FALSE}
+trainlda <- predict(model_qda ,trainda)
+
+caret::confusionMatrix(trainlda$class, trainda$class)
+
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.86
+
+Specificity : 0.63
+
+#### Test
+
+```{r echo=FALSE}
+testqda <- predict(model_qda ,testda)
+
+caret::confusionMatrix(testqda$class, testda$class)
+```
+
+Accuracy Rate : 0.7955
+
+Sensitivity : 0.8571
+
+Specificity : 0.7179
+
+### Varsayım Kontrolleri
+
+```{r echo=FALSE}
+dfmvn <- df[,c(1,4,5,8,10,14)]
+sifir <- df[df$class==0,c(1,4,5,8,10,14)]
+sifir <- sifir[,-6]
+
+bir <- df[df$class==1, c(1,4,5,8,10,14)]
+bir <- bir[,-6]
+
+```
+
+#### Henze - Zirkler Testi
+
+-   $H_{o}$: Veri çoklu normal dağılımdan gelmektedir.
+
+-   $H_{a}$: Veri çoklu normal dağılımdan gelmemektedir.
+
+```{r}
+result <- mvn(data = dfmvn, subset = "class", mvnTest = "hz")
+result$multivariateNormality
+```
+
+Henze - Zinkler normallik testine göre 0.05 anlamlılık düzeyinde $H_{o}$ verilerin çoklu normal dağılımdan geldiği hipotezi reddedilebilir.
+
+#### Mardia Testi
+
+-   $H_{o}$: Veri çoklu normal dağılımdan gelmektedir.
+
+-   $H_{a}$: Veri çoklu normal dağılımdan gelmemektedir.
+
+```{r}
+resultmardia <- mvn(data = dfmvn, subset = "class", mvnTest = "mardia")
+resultmardia$multivariateNormality
+```
+
+Mardia çok değişkenli normallik testine göre 0.05 anlamlılık düzeyinde $H_{o}$ verinin çoklu normal dağılımdan geldiği hipotezi reddedilebilir.
+
+#### Royston Testi
+
+-   $H_{o}$: Veri çoklu normal dağılımdan gelmektedir.
+
+-   $H_{a}$: Veri çoklu normal dağılımdan gelmemektedir.
+
+```{r}
+resultroyston <- mvn(data = dfmvn, subset = "class", mvnTest = "royston")
+resultroyston$multivariateNormality
+```
+
+Royston çok değişkenli normallik testine göre 0.05 anlamlılık düzeyinde $H_{o}$ verinin çoklu normal dağılımdan geldiği hipotezi reddedilebilir.
+
+### Varyans Homojenliği
+
+#### Levene Test
+
+-   $H_{o}$ : $\sigma_{21}$ = $\sigma_{22}$ = $\sigma_{2k}$
+
+-   $H_{a}$: $\sigma_{2i}$ $\ne$ $\sigma_{2j}$
+
+```{r}
+leveneTest(df$age ~ as.factor(df$class), df) 
+```
+
+Levene varyans homojenliği testine göre 0.05 anlamlılık düzeyinde $H_{o}$ Age değişkeni için sınıflara göre varyans homojenliği olduğu hipotezini reddedilebilir.
+Yani Age değişkeninin varyansı homojen değildir.
+
+```{r}
+leveneTest(df$trestbps ~ as.factor(df$class), df)
+```
+
+Levene varyans homojenliği testine göre 0.05 anlamlılık düzeyinde $H_{o}$ trestbps değişkeni için sınıflara göre varyans homojenliği olduğu hipotezini reddedilemez.
+Yani trestbps değişkeninin varyansı homojendir.
+
+```{r}
+leveneTest(df$chol ~ as.factor(df$class), df)
+```
+
+Levene varyans homojenliği testine göre 0.05 anlamlılık düzeyinde $H_{o}$ chol değişkeni için sınıflara göre varyans homojenliği olduğu hipotezini reddedilemez.
+Yani chol değişkeninin varyansı homojendir.
+
+```{r}
+leveneTest(df$thalach ~ as.factor(df$class), df)
+```
+
+Levene varyans homojenliği testine göre 0.05 anlamlılık düzeyinde $H_{o}$ thalach değişkeni için sınıflara göre varyans homojenliği olduğu hipotezini reddedilebilir.
+Yani thalach değişkeninin varyansı homojen değildir.
+
+```{r}
+leveneTest(df$oldpeak ~ as.factor(df$class), df)
+```
+
+Levene varyans homojenliği testine göre 0.05 anlamlılık düzeyinde $H_{o}$ oldpeak değişkeni için sınıflara göre varyans homojenliği olduğu hipotezini reddedilebilir.
+Yani oldpeak değişkeninin varyansı homojen değildir.
+
+#### Grafik Analizi
+
+```{r message=FALSE, warning=FALSE}
+plota <- list()
+box_variables <- c("trestbps", "age", "chol", "oldpeak", "thalach")
+for(i in box_variables) {
+  plota[[i]] <- ggplot(df, 
+                      aes_string(x = "class", 
+                                 y = i, 
+                                 col = "class", 
+                                 fill = "class")) + 
+    geom_boxplot(alpha = 0.2) + 
+    theme(legend.position = "none", panel.background = element_rect(fill = "white")) + 
+    scale_color_manual(values = c("goldenrod1", "firebrick3")) +
+    scale_fill_manual(values = c("goldenrod1", "firebrick3"))
+}
+
+grid.arrange(plota$trestbps, plota$age,plota$chol, plota$oldpeak, plota$thalach,  ncol=3)
+```
+
+Sayısal değişkenlerin bağımlı değişkenin sınıflarına göre grafikleri incelendiğinde:
+
+trestbps ve chol değişkenlerin homojen varyanslı olduğu görülmektedir.
+oldpeak, age ve thalach değişkenlerinin varyansının homojen olmadığı görülmektedir.
+Bu sonuçlar da levene test ile paralellik göstermektedir.
+
+#### BoxM Testi
+
+-   $H_{o}$ : Covariance matrices of the outcome variable are equal across all groups
+
+-   $H_{a}$ : Covariance matrices of the outcome variable are different for at least one group
+
+```{r}
+boxm <- heplots::boxM(df[, c(1,4,5,8,10)], df$class) 
+boxm 
+```
+
+p-value 0.05'ten küçük çıktığı için 0.05 anlamlılık seviyesinde $H_{o}$ bağımsız değişkenlerin kovaryans matrislerinin eşit olduğu varsayımı reddedilebilir.
+
+Sonuç olarak hem LDA hem de QDA için veri seti varsayımları sağlayamamıştır.
+Bu sebeple metrikler ne olursa olsun, QDA ve LDA algoritma kıyaslamasından seçilen model olarak çıkmayacaktır.
+
+## Support Vector Machines
+
+### Support Vector Classifier
+
+Direkt cross-validation ile model tune edilecektir.
+
+```{r}
+set.seed(2021900444)
+tune.out <- tune(svm ,
+                 class~.,
+                 data=train,
+                 kernel ="linear",
+                 ranges=list(cost=c(0.1,1,10,100,1000)))
+summary(tune.out)
+```
+
+10 fold cross validation ile tune işlemi yaptığımızda:
+
+-   Cost parametresi 1 olarak seçilmiştir.
+
+-   Cost parametresi ne kadar küçük olursa yanlış sınıflandırmalara o kadar az izin verileceği, dolayısıyla marginin de o kadar dar olacağı anlamına gelmektedir.
+    Bu model için oldukça düşük ve dolayısıyla dar bir margin olduğu anlaşılmıştır.
+
+-   En düşük hata olarak ise 0.1788095 göze çarpmaktadır.
+
+```{r include=FALSE}
+linearsvmbest <- tune.out$best.model
+summary(linearsvmbest)
+```
+
+### Linear Model Metrikleri
+
+#### Train
+
+```{r echo=FALSE}
+lineartrain <- predict(linearsvmbest ,train)
+
+caret::confusionMatrix(lineartrain, train$class)
+
+```
+
+Accuracy Rate : 0.9091
+
+Sensitivity : 0.9279
+
+Specificity : 0.8878
+
+```{r warning=FALSE, include=FALSE}
+svmpreds <- data.frame()
+svmpreds[1,1] <- "linear"
+svmpreds[2,1] <- "linear"
+svmpreds[1,2] <- "train"
+svmpreds[2,2] <- "test"
+svmpreds[1,3] <- 0.9031
+svmpreds[2,3] <- 0.75
+svmpreds[1,4] <- 0.9279
+svmpreds[2,4] <- 0.8163  
+svmpreds[1,5] <- 0.8878
+svmpreds[2,5] <- 0.6667 
+```
+
+#### Test
+
+```{r echo=FALSE}
+lineartest <- predict(linearsvmbest ,test)
+
+caret::confusionMatrix(lineartest, test$class)
+```
+
+Accuracy Rate : 0.75
+
+Sensitivity : 0.8163
+
+Specificity : 0.6667
+
+### Polynomial Support Vector Classifier
+
+```{r}
+tune.outpoly <- tune(svm,
+                 class~.,
+                 data = train,
+                 kernel = "polynomial",
+                 ranges = list(cost = c(0.001, 0.01, 0.1),
+                               degree = c(1, 3, 4)))
+summary(tune.outpoly)
+```
+
+10 fold cross validation ile tune işlemi yaptığımızda:
+
+-   Cost parametresi 0.1 olarak seçilmiştir.
+
+-   Cost parametresi ne kadar küçük olursa yanlış sınıflandırmalara o kadar az izin verileceği, dolayısıyla marginin de o kadar dar olacağı anlamına gelmektedir.
+    Bu model için oldukça düşük ve dolayısıyla dar bir margin olduğu anlaşılmıştır.
+
+-   Degree ise 1 olarak saptanmıştır.
+    En düşük hata olarak ise 0.23 göze çarpmaktadır.
+
+```{r include=FALSE}
+polysvmbest <- tune.outpoly$best.model
+```
+
+#### Polynomial Model Metrikleri
+
+#### Train
+
+```{r echo=FALSE}
+polytrain <- predict(polysvmbest ,train)
+
+caret::confusionMatrix(polytrain, train$class)
+
+```
+
+Accuracy Rate : 0.7943
+
+Sensitivity : 0.8919
+
+Specificity : 0.6837
+
+```{r include=FALSE}
+svmpreds[3,1] <- "poly"
+svmpreds[4,1] <- "poly"
+svmpreds[3,2] <- "train"
+svmpreds[4,2] <- "test"
+svmpreds[3,3] <- 0.7943
+svmpreds[4,3] <- 0.7841
+svmpreds[3,4] <- 0.8919
+svmpreds[4,4] <- 0.8571  
+svmpreds[3,5] <- 0.6837
+svmpreds[4,5] <- 0.6923 
+```
+
+#### Test
+
+```{r echo=FALSE}
+polytest <- predict(polysvmbest ,test)
+
+caret::confusionMatrix(polytest, test$class)
+
+```
+
+Accuracy Rate : 0.7841
+
+Sensitivity : 0.8571
+
+Specificity : 0.6923
+
+### Support Vector Machine
+
+```{r}
+set.seed(2021900444)
+tune.out <- tune(svm,
+                     class~.,
+                     data=train,
+                     kernel ="radial",
+                     ranges=list(cost=c(0.1,1,10,100,1000),
+                                 gamma=c(0.1,1,3,4,0.5) ))
+summary(tune.out)
+```
+
+Radial kernel için 10 fold cross validation ile tune işlemi yaptığımızda:
+
+-   Cost parametresi 1 olarak seçilmiştir.
+
+-   Cost parametresi ne kadar küçük olursa yanlış sınıflandırmalara o kadar az izin verileceği, dolayısıyla marginin de o kadar dar olacağı anlamına gelmektedir.
+    Bu model için oldukça düşük ve dolayısıyla dar bir margin olduğu anlaşılmıştır.
+
+-   Gamma parametresi en düşük olan 0.1 seçilmiştir.
+    Bu oldukça düşük olan değer hiperdüzlemin esnekliğinin oldukça düşük olduğu anlamına gelmektedir.
+
+-   En düşük hata olarak ise 0.17 olarak göze çarpmaktadır.
+
+```{r include=FALSE}
+radialsvmbest <- tune.out$best.model
+```
+
+#### Radial Model Metrikleri
+
+#### Train
+
+```{r echo=FALSE}
+radialtrain <- predict(radialsvmbest ,train)
+
+caret::confusionMatrix(radialtrain, train$class)
+
+```
+
+Accuracy Rate : 0.9952
+
+Sensitivity : 1.0000
+
+Specificity : 0.9911
+
+```{r include=FALSE}
+svmpreds[5,1] <- "radial"
+svmpreds[6,1] <- "radial"
+svmpreds[5,2] <- "train"
+svmpreds[6,2] <- "test"
+svmpreds[5,3] <- 0.9952
+svmpreds[6,3] <- 0.7159
+svmpreds[5,4] <- 1.0000 
+svmpreds[6,4] <- 0.7347  
+svmpreds[5,5] <- 0.9911
+svmpreds[6,5] <- 0.6923 
+
+names(svmpreds) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+
+```
+
+#### Test
+
+```{r echo=FALSE}
+radialtest <- predict(radialsvmbest ,test)
+
+caret::confusionMatrix(radialtest, test$class)
+```
+
+Accuracy Rate : 0.7159
+
+Sensitivity : 0.7347
+
+Specificity : 0.6923
+
+### En İyi Support Vector Modelinin Seçilmesi
+
+#### Accuracy Rate Karşılaştırması
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma")
+```
+
+Train ve Test veri setleriyle yapılan tahminlerin farklı support vector machine modelleri için accuracy rate grafiği incelendiğinde radial kernelli support vector modelinin bir overfit problemi olduğu fark edilmiştir.
+En iyisi polynomial kernel ile oluşturulan model olarak saptanmıştır.
+
+#### Sensitivity Karşılaştırması
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Train ve Test veri setleriyle yapılan tahminlerin farklı support vector machine modelleri için sensitivity grafiği incelendiğinde radial kernelli support vector modelinin bir overfit problemi olduğu fark edilmiştir.
+En iyisi polynomial kernel ile oluşturulan model olarak saptanmıştır.
+
+#### Specificity Karşılaştırması
+
+```{r}
+svmpreds %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+
+```
+
+Train ve Test veri setleriyle yapılan tahminlerin farklı support vector machine modelleri için specificity grafiği incelendiğinde radial kernelli support vector modelinin bir overfit problemi olduğu fark edilmiştir.
+Polynomial kernel ile oluşturulan modelin test specificitysi, trainden daha yüksek çıkmıştır ki bu tam olarak istenilen şey denilebilir.
+En iyisi polynomial kernel ile oluşturulan model olarak saptanmıştır.
+
+Her bir metrik için kıyaslama sonucunda yukarda bahsedilen sebeplerden dolayı polynomial model ile devam edilme kararı alınmıştır.
+
+## ROC Curve
+
+```{r}
+predct <- prediction(as.numeric(as.vector(prunedtree.predtest3)), test$class)
+predbag <- prediction(as.numeric(as.vector(baggintest1)), test$class)
+predrf <- prediction(as.numeric(as.vector(ranfortest1)), test$class)
+predlr <- prediction(as.numeric(as.vector(testpred1)), test$class)
+predlda <- prediction(as.numeric(as.vector(ldatest$class)), testda$class)
+predqda <- prediction(as.numeric(as.vector(testqda$class)), testda$class)
+predsvm <- prediction(as.numeric(as.vector(polytest)), test$class)
+
+```
+
+### ROC Eğri Hesaplamaları
+
+```{r}
+perfct <- performance( predct, "tpr", "fpr" )
+perfbag <- performance(predbag, "tpr", "fpr")
+perfrf <- performance(predrf, "tpr", "fpr")
+perflr <- performance(predlr, "tpr", "fpr")
+perflda <- performance(predlda, "tpr", "fpr")
+perfqda <- performance(predqda, "tpr", "fpr")
+perfsvm <- performance(predsvm, "tpr", "fpr")
+
+```
+
+### ROC Curve Grafiği
+
+```{r}
+plot(perfct, col = "firebrick3", lwd = 2, lty = 1)
+plot(perfbag, add = TRUE, col = "aquamarine3", lwd = 2, lty =2)
+plot(perfrf, add=T, col = "chocolate3", lwd = 2, lty = 3)
+plot(perflda, add = TRUE, col = "lightpink3", lwd = 2, lty =4)
+plot(perfqda,add=T, col = "burlywood3", lwd = 2, lty =1)
+plot(perflr, add = TRUE, col = "dodgerblue3", lwd = 2, lty=5)
+plot(perfsvm, add=T, col = "darkorchid4", lwd = 2, lty=6)
+legend("bottomright", title = "Algoritma - AUC Değeri", legend= c("ct - 0.81", "bag - 0.79", "rf - 0.82", "lda - 0.74", "qda - 0.78", "lr - 0.77", "svm - 0.77"), col = c( "firebrick3", "aquamarine3", "chocolate3","lightpink3","burlywood3","dodgerblue3","darkorchid4"), lty = c(1,2,3,4,1,5,6), lwd = 2)
+
+```
+
+ROC Curve grafiği ve AUC hesaplamaları incelendiğinde:
+
+En iyi sonuç veren algoritma Random Forest olarak saptanmıştır.
+Ancak bu veri seti özelinde Tip I hata yani Sensitivity'nin daha yüksek çıkması daha önemlidir.
+Tip II hatayı yükseltmek bu veri seti özelinde göze alınabilecek bir takas olarak görülmektedir.
+Kalp krizi geçirmiş birinin kalp krizi geçirdiğini doğru olarak tahmin etmek hayati bir önem taşımaktadır.
+Bu sebeple cut-off noktalarına bakmak gerekmektedir.
+
+AUC değerlerine göre en iyi üç model:
+
+Random Forest, CT, Bag
+
+Cut-Off'a göre en iyi üç model:
+
+SVM, Bag, Random Forest
+
+NOT: LDA ve QDA varsayımları sağlamadığı için göz ardı edilmiştir.
+
+### Model Metriklerinin Karşılaştırılması
+
+```{r include=FALSE}
+#############################
+preds <- data.frame()
+preds[1,1] <- "ClassTree"
+preds[2,1] <- "ClassTree"
+preds[1,2] <- "train"
+preds[2,2] <- "test"
+preds[1,3] <- 0.866 
+preds[2,3] <- 0.8295 
+preds[1,4] <- 0.9099
+preds[2,4] <- 0.9184
+preds[1,5] <- 0.8163
+preds[2,5] <- 0.7179
+
+##############################
+
+preds[3,1] <- "Bagging"
+preds[4,1] <- "Bagging"
+preds[3,2] <- "train"
+preds[4,2] <- "test"
+preds[3,3] <- 1.0000
+preds[4,3] <- 0.7955
+preds[3,4] <- 1.0000
+preds[4,4] <- 0.8776
+preds[3,5] <- 1.0000
+preds[4,5] <- 0.6923
+
+
+#################################
+
+preds[5,1] <- "RanFor"
+preds[6,1] <- "RanFor"
+preds[5,2] <- "train"
+preds[6,2] <- "test"
+preds[5,3] <- 0.9378
+preds[6,3] <- 0.8295
+preds[5,4] <- 0.9459
+preds[6,4] <- 0.8776
+preds[5,5] <- 0.9256
+preds[6,5] <- 0.7692
+
+#################################
+
+preds[7,1] <- "LogReg"
+preds[8,1] <- "LogReg"
+preds[7,2] <- "train"
+preds[8,2] <- "test"
+preds[7,3] <- 0.8947
+preds[8,3] <- 0.7955
+preds[7,4] <- 0.9459
+preds[8,4] <- 0.9184
+preds[7,5] <- 0.8367
+preds[8,5] <- 0.6410
+
+#################################
+
+preds[9,1] <- "LDA"
+preds[10,1] <- "LDA"
+preds[9,2] <- "train"
+preds[10,2] <- "test"
+preds[9,3] <- 0.7081
+preds[10,3] <- 0.75
+preds[9,4] <- 0.7838
+preds[10,4] <- 0.7939
+preds[9,5] <- 0.6224
+preds[10,5] <- 0.6923
+
+#################################
+
+preds[11,1] <- "QDA"
+preds[12,1] <- "QDA"
+preds[11,2] <- "train"
+preds[12,2] <- "test"
+preds[11,3] <- 0.756
+preds[12,3] <- 0.7955
+preds[11,4] <- 0.86
+preds[12,4] <- 0.8571
+preds[11,5] <- 0.6837
+preds[12,5] <- 0.6923
+
+#################################
+
+preds[13,1] <- "SVM"
+preds[14,1] <- "SVM"
+preds[13,2] <- "train"
+preds[14,2] <- "test"
+preds[13,3] <- 0.7943
+preds[14,3] <- 0.7841
+preds[13,4] <- 0.8919
+preds[14,4] <- 0.8571
+preds[13,5] <- 0.6837
+preds[14,5] <- 0.6923
+
+###############################
+
+names(preds) <- c("Algoritma", "TT", "Accuracy_Rate", "Sensivity", "Specificity" )
+
+```
+
+Grafik Okuma Bilgisi:
+
+y ekseninde kullanılan algoritmaların isimleri yer almaktadır.
+
+x ekseninde ise her bir algoritmanın accuracy rate değeri yer almaktadır.
+Turkuaz nokta o algoritmanın train veri seti ile kurulan modelinin accuracy rate'ini, kırmızı nokta ise test veri seti ile kurulan modelin accuracy rate'ini göstermektedir.
+İki nokta arasındaki çizginin uzunluğu train ile test arasındaki accuracy rate'inin ne kadar farklı olduğunu işaret etmektedir.
+bu da overfit ile ilgili bir fikir sahibi olabilmemize olanak sağlayabilecektir.
+
+### Accuracy Rate Karşılaştırması
+
+```{r}
+preds %>% 
+  ggplot(aes(x= Accuracy_Rate, y= reorder(Algoritma, -Accuracy_Rate))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=4) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Accuracy Rate") +
+  ylab("Algoritma")
+
+```
+
+Modellerin train ve test verilerine göre Accuracy Rate'lerini gösteren grafik incelendiğinde:
+
+-   LDA'nın test accuracy rateinin trainden daha yüksek çıktığı gözlemlenmiştir.
+    Ancak diğer algoritmalara kıyasla daha düşük bir başarı görülmektedir.
+    Zaten varsayımlar sağlanmadığı için modelin güvenilirliği olmadığı düşünülmektedir.
+
+-   QDA'nın train ile test accuracy rateleri arasında bir fark olmadığı fark edilmiştir.
+    Ancak zaten varsayımlar sağlanmadığı için bu modelin güvenililirliği yoktur.
+
+-   SVM'in train ile test accuracy rateleri arasındaki farkın yok denecek kadar az olduğu görülmemektedir.
+    Ancak test veri setinin accuracy rate'inin de oldukça düşük görülmektedir.
+    Başarılı olduğu söylenemez.
+    Logistic Regresyon modelinin SVM modeline oldukça yakın bir test accuracy rate'i bulunmaktadır.
+    Train ile test arasındaki fark da çok fazla olarak saptanmamıştır.
+    Ancak daha başarılı modellerin olduğu fark edilmektedir.
+
+-   Classification Tree'nin train ile test accuracy rateleri arasındaki farkın çok fazla olmadığı görülmektedir.
+    Yine diğer yöntemlere kıyasla daha iyi bir başarı fark ediliyor.
+
+-   Random Forest'ın train ile test accuracy rateleri arasındaki fark tam sınırda görülmekte.
+    Diğer algoritmalara göre daha iyi bir başarı elde etmiş.
+
+-   Bagging'in train ile test accuracy rateleri arasındaki fark incelendiğinde overfit problemi olabileceği düşünülmüştür.
+    Accuracy rate yüksek olmasına rağmen overfit problemi modelin güvenilirliğini sorgulatmaktadır.
+
+-   Classificaton Tree ile oluşturulan model bu metrik için en ağır basan model olarak dikkat çekiyor.
+
+    ### Sensitivity Karşılaştırması
+
+```{r}
+
+preds %>% 
+  ggplot(aes(x= Sensivity, y= reorder(Algoritma, -Sensivity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Sensitivity") +
+  ylab("Algoritma")
+```
+
+Modellerin train ve test verilerine göre Sensitivity'lerini gösteren grafik incelendiğinde:
+
+Sensitivity değeri bizim için diğer metriklere göre daha önemlidir.
+Sınıflandırmak istediğimiz ayrım düşünüldüğünde sensitivity'nin önemi ortaya çıkmaktadır.
+Kalp hastası olan birini kalp hastası olarak sınıflandırmak, kalp hastası olmayan birini kalp hastası olarak sınıflandırmaya kıyasla çok daha önemlidir.
+Hayati önem taşıyan bu ayrıntı model seçimimizdeki ana faktör olacak.
+Bu bağlamda teste göre en yüksek çıkan model Bagging olarak görünüyor.
+Fakat Bagging modelinde bir overfit problemi de fark ediliyor.
+İkinci sırada yer alan Logistic Regresyon ve üçüncü sıradaki Classification Tree oldukça başarılı görünmekte.
+Classification Tree modelinde test verisinin trainden daha iyi sonuç vermesi istenilen bir sonuç olarak dikkat çekmekte.
+Diğer modellere kıyasla daha iyi sonuçlar verdikleri için Classification Tree ve Logistic Regresyon burada daha ağır basan modeller olarak dikkat çekiyor.
+
+### Specificity Karşılaştırması
+
+```{r}
+preds %>% 
+  ggplot(aes(x= Specificity, y= reorder(Algoritma, -Specificity))) +
+  geom_line(stat="identity") +
+  geom_point(aes(color=TT), size=3) +
+  theme(legend.position="top") +
+  theme(panel.background = element_rect(fill="white"))+
+  xlab("Specificity") +
+  ylab("Algoritma")
+```
+
+Modellerin train ve test verilerine göre Sensitivity'lerini gösteren grafik incelendiğinde:
+
+SVM ve QDA modellerinin test sonuçlarının train'e göre daha iyi olması dikkat çekmektedir.
+Ancak hem değerlerin oldukça düşük olması, hem de QDA'nın varsayımları sağlayamaması sebebiyle güvenilir olmadığı düşünülmektedir.
+Bagging modelinin yine bir overfit problemi olduğu fark edilmiştir.
+Random Forest ve Classification Tree modellerinin en iyi sonuçlara sahip modeller olduğu rahatlıkla söylenebilir.
+
+## En İyi Model
+
+Üç metrik için train ve test verilerinde en yüksek sonuç veren algoritmalar karşılaştırılmak istenilmiştir.
+Ancak LDA ve QDA algoritmalarıyla oluşturulan modeller bu iki algoritmanın varsayımlarını sağlamadığı için bu kıyaslamadan çıkarılmıştır.
+Varsayımları sağlamayan algoritmalar dikkate alınmayacaktır.
+
+Accuracy Rate:
+
+Classification Tree ve Random Forest
+
+Sensitivity:
+
+Classification Tree ve Logistic Regression
+
+Specificity:
+
+Random Forest ve Classification Tree
+
+AUC:
+
+Random Forest ve Classification Tree
+
+Genel toplama ek olarak, özellikle Sensitivity metriğindeki başarısı düşünüldüğünde en iyi sonuç veren ve bu veri setine en uygun olarak dikkat çeken model Classification Tree ile oluşturulan model seçilmiştir.
+Seçilen modelin test veri setindeki tüm metrikleri incelendiğinde:
+
+```{r echo=FALSE}
+prunedtree.predtest3 <- predict(treeclass2, test, type = "class")
+
+caret::confusionMatrix(prunedtree.predtest3, test$class)
+```
+
+Toplam gözlem sayısı 88 olan test veri setinde 15 gözlem yanlış sınıflandırılmıştır.
+%82.95'lik bir doğru tahmin oranına ek olarak %91.84'lük bir sensitivity değeri dikkat çekmektedir.
+Specificity değerinin %71.79'luk değeri sınıflandırılan 15 yanlış gözlemin büyük bir çoğunluğunun kalp hastası olmayan gözlemlemlerin kalp hastası olarak sınıflandırıldığını ortaya çıkarmaktadır.
+Sensitivitydeki başarının yüksekliği kalp hastası olan kişileri, kalp hastası olarak sınıflandırmasının, yani hayati önem taşıyan bu ayrımdaki başarısının daha fazla olmasının çok kıymetli olduğu rahatlıkla söylenebilir.
