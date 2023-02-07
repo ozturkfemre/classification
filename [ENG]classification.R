@@ -1043,21 +1043,14 @@ lgpred %>%
 
 
 
-############################
-### Varsayım Kontrolleri ###
-############################
+########################
+### Assumption Check ###
+########################
 
 
 vif(logmodel1)
 # no  multicolinerity.
 
-# Sample size:
-
-# The number of observations we need to have if we want a success like 0.90:
-
-10*13/0.90
-
-# Since we have more than 144 observations, we can say that this assumption is also met.
 
 
 ##############################################################################################################################################
@@ -1101,7 +1094,6 @@ model_lda
 # When the output of the linear discriminant analysis model is analyzed:
 
 # There is only one linear discrimination.
-# The probability of the observations belonging to the zero class is 0.52 and the probability of belonging to the first group is 0.47.
 # The ratios are very close to each other.
 
 
@@ -1179,7 +1171,7 @@ model_qda
 
 # When the Quadratic Discriminant Analysis output is analyzed:
 
-# The probability of placing the observations in the zero class is 0.53 and the probability of placing them in the first class is 0.46.
+
 # Such a low difference between the probabilities calls into question the reliability of the model.
 # When we look at the averages of the zero and first classes on the basis of variables, we see that the variables trestbps, chol, thalach, oldpeak are more clearly differentiated,
 # It is observed that there is not a good decomposition on the basis of other variables. 
