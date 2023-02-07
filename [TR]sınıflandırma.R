@@ -1064,13 +1064,6 @@ lgpred %>%
 vif(logmodel1)
 # herhangi bir bağlantı problemi görülmemektedir.
 
-# Örneklem büyüklüğü:
-
-# Eğer 0.90 gibi bir başarı istiyorsak sahip olmamız gereken gözlem sayısı:
-
-10*13/0.90
-
-# Gözlem sayımız 144'ten fazla olduğu için bu varsayımın da karşılandığı söylenebilir.
 
 
 ##############################################################################################################################################
@@ -1114,7 +1107,6 @@ model_lda
 # Linear discriminant analysis modelinin çıktısı incelendiğinde:
 
 # Yalnızca bir adet doğrusal ayrım olduğu saptanmıştır.
-# Gözlemlerin sıfırıncı sınıfa dahil olma olasılığı 0.52, birinci gruba dahil olma olasılığı ise 0.47 olarak saptanmıştır.
 # Oranlar birbirine oldukça yakın çıkmıştır.
 
 
@@ -1193,7 +1185,6 @@ model_qda
 
 # Quadratic Discriminant Analysis çıktısı incelendiğinde:
 
-# Gözlemlerin sıfırıncı sınıfa yerleştirilme olasılığı 0.53, birinci sınıfa yerleştirilme olasılığı ise 0.46 olarak saptanmıştır.
 # Olasılıklar arasındaki farkın bu denli düşük olması modelin güvenilirliğini sorgulatmaktadır.
 # Sıfır ve birinci sınıfların değişken bazında ortalamalarına bakıldığı zaman trestbps, chol, thalach, oldpeak değişkenlerinin daha net bir şekilde ayrıştığını,
 # diğer değişkenler bazında ise iyi bir ayrışma olmadığı gözlemlenmiştir. 
