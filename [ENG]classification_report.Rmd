@@ -1085,15 +1085,6 @@ vif(logmodel1)
 
 There is no  multicolinerity.
 
-**Sample size**
-
-The number of observations we need to have if we want a success like 0.90:
-
-```{r}
-10*13/0.90
-```
-
-Since we have more than 144 observations, we can say that this assumption is also met.
 
 ### Predictions
 
