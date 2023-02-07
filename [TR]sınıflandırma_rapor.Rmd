@@ -1084,15 +1084,6 @@ vif(logmodel1)
 
 Herhangi bir bağlantı problemi görülmemektedir.
 
-Örneklem büyüklüğü:
-
-Eğer 0.90 gibi bir başarı istiyorsak sahip olmamız gereken gözlem sayısı:
-
-```{r}
-10*13/0.90
-```
-
-Gözlem sayımız 144'ten fazla olduğu için bu varsayımın da karşılandığı söylenebilir.
 
 ### Modelin Tahminleri
 
@@ -1358,8 +1349,6 @@ Linear discriminant analysis modelinin çıktısı incelendiğinde:
 
 -   Yalnızca bir adet doğrusal ayrım olduğu saptanmıştır.
 
--   Gözlemlerin sıfırıncı sınıfa dahil olma olasılığı 0.53, birinci gruba dahil olma olasılığı ise 0.46 olarak saptanmıştır.
-
 -   Oranlar birbirine oldukça yakın çıkmıştır.
 
 -   Thalach ve chol değişkenlerinin ortalama ayrımı daha etkili olarak saptanmıştır.
@@ -1431,7 +1420,6 @@ model_qda
 
 Quadratic discriminant analysis modelinin çıktısı incelendiğinde:
 
--   Gözlemlerin sıfırıncı sınıfa dahil olma olasılığı 0.53, birinci gruba dahil olma olasılığı ise 0.46 olarak saptanmıştır.
 
 -   Oranlar birbirine oldukça yakın çıkmıştır.
 
