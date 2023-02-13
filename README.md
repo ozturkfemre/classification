@@ -42,7 +42,40 @@ There are 14 variables and 297 observations in the data set. Each observation re
 
 ## Study
 
+The Study section consists of 6 chapters: descriptive statistics, data visualization, algorithms, roc curves, comparison, and the best model
 
 ### Descriptive Statistics
+
+In the descriptive statistics section, descriptive statistics of each variable were analysed. These analyses were made separately for categorical and numerical variables.
+
+### Data Visualization
+
+In this section, boxplots of numerical variables are analysed first. Plots are interpreted in detail. 
+
+Then, the boxplots of the numerical variables according to the class variable are also drawn. In this way, it was examined how the patient and healthy individuals changed in each variable.
+
+### Algorithms
+
+In this section, classification tree, bagging, random forest, logistic regression, linear discriminant analysis, quadratic discriminant analysis and support vector machine algorithms are applied to the dataset.
+
+#### Classification Tree
+
+Two R packages were used in the Classification Tree study. These packages can be listed as tree and rpart packages. 
+
+In the analysis performed with the tree package, the whole tree was first created. Then, the point where the tree will be pruned was selected with cross validation. 
+
+Since the rpart package also does the pruning itself, only one model was created.
+
+The unpruned tree generated with the tree package, the pruned tree generated with the tree package, and the tree generated with the rpart package were compared with performance metrics and the best tree was decided.
+
+#### Bagging
+
+Two R packages were utilised in the bagging study. These packages can be listed as randomForest and ipred packages. 
+
+The outputs of the models created with both packages were analysed.
+
+Then, the performance metrics of the models created with both packages were compared and the best bagging model was decided.
+
+#### Random Forest
 
 
