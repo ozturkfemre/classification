@@ -139,7 +139,7 @@ In this section, the best models selected for each algorithm are compared with e
 
 In this section, all algorithms are compared according to performance metrics. Accuracy rate, Sensitivity, Specificity metrics were used in this comparison. A separate graph is drawn for each metric. This graph was determined to facilitate the overfit analysis.
 
-![Overfit Plot](000012.png)
+![Overfit Plot](plot/000012.png)
 
 **Plot Guide**
 
