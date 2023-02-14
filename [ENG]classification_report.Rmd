@@ -2066,6 +2066,7 @@ preds %>%
   ggplot(aes(x= Accuracy_Rate, y= reorder(Algorithm, -Accuracy_Rate))) +
   geom_line(stat="identity") +
   geom_point(aes(color=TT), size=4) +
+  xlim(0,1) +
   theme(legend.position="top") +
   theme(panel.background = element_rect(fill="white"))+
   xlab("Accuracy Rate") +
@@ -2094,6 +2095,7 @@ preds %>%
   ggplot(aes(x= Sensivity, y= reorder(Algorithm, -Sensivity))) +
   geom_line(stat="identity") +
   geom_point(aes(color=TT), size=3) +
+  xlim(0,1) +
   theme(legend.position="top") +
   theme(panel.background = element_rect(fill="white"))+
   xlab("Sensitivity") +
@@ -2119,6 +2121,7 @@ preds %>%
   ggplot(aes(x= Specificity, y= reorder(Algorithm, -Specificity))) +
   geom_line(stat="identity") +
   geom_point(aes(color=TT), size=3) +
+  xlim(0.5,1) +
   theme(legend.position="top") +
   theme(panel.background = element_rect(fill="white"))+
   xlab("Specificity") +
