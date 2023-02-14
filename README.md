@@ -4,7 +4,7 @@ Classification Project
 
 ## Aim of the Project
 
-In this project, I compared classification tree, bagging, random forest, logistic regression, linear discriminant analysis, quadratic discriminant analysis and support vector machine algorithms on the same data set to compare which one gives better results. It will be more useful to follow the work from .Rmd files. Both [Turkish](https://github.com/ozturkfemre/classification/blob/main/TR/%5BTR%5Ds%C4%B1n%C4%B1fland%C4%B1rma_rapor.Rmd) and [English](https://github.com/ozturkfemre/classification/blob/main/ENG/%5BENG%5Dclassification_report.Rmd) .Rmd and .R files are available.
+In this project, I compared classification tree, bagging, random forest, logistic regression, linear discriminant analysis, quadratic discriminant analysis and support vector machine algorithms on the same data set to see which one gives better results. It will be more useful to follow the work from .Rmd files. Both [Turkish](https://github.com/ozturkfemre/classification/blob/main/TR/%5BTR%5Ds%C4%B1n%C4%B1fland%C4%B1rma_rapor.Rmd) and [English](https://github.com/ozturkfemre/classification/blob/main/ENG/%5BENG%5Dclassification_report.Rmd) .Rmd and .R files are available.
 
 ## Dataset Information
 
@@ -143,7 +143,7 @@ In this section, all algorithms are compared according to performance metrics. A
 
 **Plot Guide**
 
--   on the y-axis are the names of the algorithms used.
+-   on the y-axis, there are the names of the algorithms used.
 -   the x-axis shows the accuracy rate of each algorithm.
 -   the yellow dot shows the accuracy rate of the model of that algorithm built with the train dataset and the red dot shows the accuracy rate of the model built with the test dataset.
 -   the length of the line between the two dots indicates how different the accuracy rate is between train and test, which can give us an idea about the overfit.
