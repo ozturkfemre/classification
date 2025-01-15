@@ -31,15 +31,16 @@ library(MVN)
 
 df <- get(data("heart", package = "kmed"))
 
+
 # Kalp hastası, kalp hastası değil dönüşümü yapılmıştır.
 df %<>% mutate(class = ifelse(df$class == 0, 0,1)) 
 df2 <- df
 
 # gerekli dönüşümler:
 
-
+head(df)
 str(df)
-
+getwd()
 df$sex <- as.numeric(df$sex)
 df$sex <- as.factor(df$sex)
 df$fbs <- as.numeric(df$fbs)
