@@ -74,7 +74,7 @@ summary(df)
 # Aykırı gözlemler için boxplot, dağılımlar ile ilgili genel bir bilgi sahibi olabilmek için ise histogram grafiklerine başvurulacaktır.
 
 
-# Veri setinde yer alan kategorik değerlerin tanımlayıcı istatistikleri incelendiğinde:
+# Veri setinde yer alan kategorik değerlerin tanımlayıcı istatistikler incelendiğinde:
 
 # Sex değişkeni incelendiğinde ise veride yer alan gözlemlerin büyük bir çoğunluğunun erkek olduğu saptanmıştır.
 # cp değişkeni incelendiğinde çoğunluğun asymptomatic türündeki göğüs ağrısı olduğu saptanmıştır.

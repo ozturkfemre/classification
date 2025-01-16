@@ -25,7 +25,6 @@ library(klaR)
 library(e1071)
 library(gridExtra)
 library(ggalt)
-#install.packages("ROCR")
 library(ROCR)
 library(MVN)
 
