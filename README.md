@@ -4,7 +4,7 @@ Classification Project
 
 ## Aim of the Project
 
-In this project, I compared classification tree, bagging, random forest, logistic regression, linear discriminant analysis, quadratic discriminant analysis and support vector machine algorithms on the same data set to see which one gives better results. It will be more useful to follow the work from .Rmd files. Both [Turkish](https://github.com/ozturkfemre/classification/blob/main/TR/%5BTR%5Ds%C4%B1n%C4%B1fland%C4%B1rma_rapor.Rmd) and [English](https://github.com/ozturkfemre/classification/blob/main/ENG/%5BENG%5Dclassification_report.Rmd) .Rmd and .R files are available.
+In this project, I compared classification tree, bagging, random forest, logistic regression, linear discriminant analysis, quadratic discriminant analysis and support vector machine algorithms on the same data set to see which one gives better results. It will be more useful to follow the work from .Rmd files. Both [Turkish](https://github.com/ozturkfemre/classification/blob/main/TR/%5BTR%5Ds%C4%B1n%C4%B1fland%C4%B1rma_rapor.Rmd) and [English](https://github.com/ozturkfemre/classification/blob/main/ENG/%5BENG%5Dclassification_report.Rmd) .Rmd and .R and python files are available.
 
 ## Dataset Information
 
